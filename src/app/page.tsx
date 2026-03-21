@@ -1,12 +1,16 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CloneEvent, ClonedPage } from '@/lib/types'
+import { getDemoSession, incrementDemoRun, getByokSession, saveByokSession, clearByokSession } from '@/lib/demo'
 import UrlInputPanel from '@/components/UrlInputPanel'
 import ProgressFeed from '@/components/ProgressFeed'
 import PageTabBar from '@/components/PageTabBar'
 import PagePreview from '@/components/PagePreview'
 import DemoBanner from '@/components/DemoBanner'
+import ApiKeyInput from '@/components/ApiKeyInput'
+
+const DEMO_RUN_LIMIT = parseInt(process.env.NEXT_PUBLIC_DEMO_RUN_LIMIT ?? '3')
 
 export default function Home() {
   const [isRunning, setIsRunning] = useState(false)
@@ -14,14 +18,26 @@ export default function Home() {
   const [pages, setPages] = useState<ClonedPage[]>([])
   const [activeSlug, setActiveSlug] = useState<string | null>(null)
   const [hasStarted, setHasStarted] = useState(false)
-  const sourceRef = useRef<EventSource | null>(null)
+  const [apiKey, setApiKey] = useState<string | null>(null)
+  const [runsUsed, setRunsUsed] = useState(0)
+  const [showApiKeyInput, setShowApiKeyInput] = useState(false)
+  const [isDownloading, setIsDownloading] = useState(false)
+  const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
-    return () => { sourceRef.current?.close() }
+    const byok = getByokSession()
+    if (byok) setApiKey(byok.apiKey)
+    setRunsUsed(getDemoSession().runsUsed)
   }, [])
 
-  function startClone(designUrl: string, contentUrl: string) {
-    sourceRef.current?.close()
+  useEffect(() => {
+    return () => { abortRef.current?.abort() }
+  }, [])
+
+  async function startClone(designUrl: string, contentUrl: string) {
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
 
     setIsRunning(true)
     setHasStarted(true)
@@ -29,38 +45,107 @@ export default function Home() {
     setPages([])
     setActiveSlug(null)
 
-    const params = new URLSearchParams({ designUrl, contentUrl })
-    const source = new EventSource(`/api/clone?${params}`)
-    sourceRef.current = source
-
-    source.onmessage = (e: MessageEvent) => {
-      const event: CloneEvent = JSON.parse(e.data as string)
-      setEvents((prev) => [...prev, event])
-
-      if (event.type === 'page_complete') {
-        setPages((prev) => [...prev, event.page])
-        setActiveSlug((prev) => prev ?? event.page.slug)
-      }
-      if (event.type === 'done' || event.type === 'error') {
-        setIsRunning(false)
-        source.close()
-      }
+    if (!apiKey) {
+      const updated = incrementDemoRun()
+      setRunsUsed(updated.runsUsed)
     }
 
-    source.onerror = () => {
-      setIsRunning(false)
-      source.close()
+    const headers: Record<string, string> = {}
+    if (apiKey) headers['x-api-key'] = apiKey
+
+    const params = new URLSearchParams({ designUrl, contentUrl })
+
+    try {
+      const res = await fetch(`/api/clone?${params}`, {
+        headers,
+        signal: controller.signal,
+      })
+
+      if (!res.ok || !res.body) {
+        setIsRunning(false)
+        return
+      }
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const parts = buffer.split('\n\n')
+        buffer = parts.pop() ?? ''
+
+        for (const part of parts) {
+          const line = part.trim()
+          if (!line.startsWith('data: ')) continue
+          try {
+            const event: CloneEvent = JSON.parse(line.slice(6))
+            setEvents((prev) => [...prev, event])
+
+            if (event.type === 'page_complete') {
+              setPages((prev) => [...prev, event.page])
+              setActiveSlug((prev) => prev ?? event.page.slug)
+            }
+            if (event.type === 'done' || event.type === 'error') {
+              setIsRunning(false)
+            }
+          } catch {
+            // malformed event — skip
+          }
+        }
+      }
+    } catch (err: unknown) {
+      // AbortError is intentional — don't surface as an error state
+      if (!(err instanceof Error && err.name === 'AbortError')) {
+        setIsRunning(false)
+      }
     }
   }
 
-  const activePage = pages.find((p) => p.slug === activeSlug) ?? null
+  async function handleDownload() {
+    setIsDownloading(true)
+    try {
+      const res = await fetch('/api/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pages }),
+      })
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'cloned-site.zip'
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setIsDownloading(false)
+    }
+  }
+
+  function handleSaveApiKey(key: string) {
+    saveByokSession(key)
+    setApiKey(key)
+  }
+
+  function handleClearApiKey() {
+    clearByokSession()
+    setApiKey(null)
+  }
+
+  const activePage = useMemo(
+    () => pages.find((p) => p.slug === activeSlug) ?? null,
+    [pages, activeSlug],
+  )
+  const demoLimitReached = !apiKey && runsUsed >= DEMO_RUN_LIMIT
 
   return (
     <main
       className="min-h-screen flex flex-col"
       style={{ backgroundColor: 'var(--color-bg-primary)' }}
     >
-      {/* Header */}
       <header
         className="px-6 py-4 border-b flex items-center gap-4"
         style={{ borderColor: 'var(--color-border)' }}
@@ -71,25 +156,51 @@ export default function Home() {
         <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
           Paste two URLs. Get a cloned site.
         </span>
+        {apiKey && (
+          <button
+            onClick={handleClearApiKey}
+            className="ml-auto text-xs"
+            style={{ color: 'var(--color-text-muted)' }}
+          >
+            Remove API key
+          </button>
+        )}
       </header>
 
-      {/* Demo banner — null in M3, implemented in M4 */}
-      <DemoBanner />
+      <DemoBanner
+        runsUsed={runsUsed}
+        runLimit={DEMO_RUN_LIMIT}
+        hasApiKey={!!apiKey}
+        onOpenApiKeyInput={() => setShowApiKeyInput(true)}
+      />
 
-      {/* URL input */}
       <section className="px-6 py-8 w-full max-w-4xl mx-auto">
-        <UrlInputPanel onClone={startClone} isRunning={isRunning} />
+        <UrlInputPanel
+          onClone={startClone}
+          isRunning={isRunning}
+          disabled={demoLimitReached}
+        />
+        {!isRunning && pages.length > 0 && (
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={handleDownload}
+              disabled={isDownloading}
+              className="px-4 py-2 rounded-md text-sm font-medium text-white disabled:opacity-50"
+              style={{ backgroundColor: 'var(--color-accent)' }}
+            >
+              {isDownloading ? 'Preparing ZIP…' : 'Download ZIP'}
+            </button>
+          </div>
+        )}
       </section>
 
-      {/* Pipeline output — only visible after first run */}
       {hasStarted && (
         <div
-          className="flex flex-1 min-h-0 border-t"
+          className="flex flex-1 min-h-0 border-t flex-col md:flex-row"
           style={{ borderColor: 'var(--color-border)' }}
         >
-          {/* Left: progress feed */}
           <aside
-            className="w-[280px] shrink-0 border-r overflow-hidden flex flex-col"
+            className="md:w-[280px] shrink-0 md:border-r border-b md:border-b-0 overflow-hidden flex flex-col"
             style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-elevated)' }}
           >
             <div
@@ -101,14 +212,18 @@ export default function Home() {
             <ProgressFeed events={events} isRunning={isRunning} />
           </aside>
 
-          {/* Right: tabs + preview */}
           <div className="flex flex-col flex-1 min-h-0">
             <PageTabBar pages={pages} activeSlug={activeSlug} onSelect={setActiveSlug} />
-            <div className="flex flex-1 min-h-0">
-              <PagePreview page={activePage} isLoading={isRunning && pages.length === 0} />
-            </div>
+            <PagePreview page={activePage} isLoading={isRunning && pages.length === 0} />
           </div>
         </div>
+      )}
+
+      {showApiKeyInput && (
+        <ApiKeyInput
+          onSave={handleSaveApiKey}
+          onClose={() => setShowApiKeyInput(false)}
+        />
       )}
     </main>
   )
