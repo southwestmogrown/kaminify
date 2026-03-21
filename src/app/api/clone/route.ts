@@ -44,8 +44,10 @@ export async function GET(request: Request): Promise<Response> {
         const designSystem = extractDesignSystem(designSite)
 
         for (const page of pages) {
+          send(controller, { type: 'status', message: `Scraping ${page.navLabel}...` })
+          const pageSite = await scrapeSite(page.url)
           send(controller, { type: 'status', message: `Generating ${page.navLabel}...` })
-          const content = extractPageContent(contentSite, page)
+          const content = extractPageContent(pageSite, page)
           const html = await composePage(designSystem, content, pages, apiKey)
           const clonedPage: ClonedPage = {
             slug: page.slug,
