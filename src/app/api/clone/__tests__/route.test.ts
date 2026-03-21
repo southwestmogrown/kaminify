@@ -32,6 +32,7 @@ const fakePages: DiscoveredPage[] = [
   { url: 'https://example.com/', title: 'Home', slug: 'index', navLabel: 'Home' },
 ]
 const fakeDesign: DesignSystem = {
+  cssVariables: '',
   colorPalette: [], fontStack: [], spacing: [], borderRadius: [],
   componentPatterns: { nav: '', hero: '', footer: '', card: '', button: '' },
   rawCss: '',
