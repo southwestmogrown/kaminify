@@ -11,10 +11,10 @@
 | #5 | Extractors | M1 | DONE |
 | #6 | Composer utility | M2 | DONE |
 | #7 | /api/clone SSE route | M2 | DONE |
-| #8 | UrlInputPanel | M3 | PENDING |
-| #9 | ProgressFeed | M3 | PENDING |
-| #10 | PageTabBar + PagePreview | M3 | PENDING |
-| #11 | Main page + SSE client | M3 | PENDING |
+| #8 | UrlInputPanel | M3 | DONE |
+| #9 | ProgressFeed | M3 | DONE |
+| #10 | PageTabBar + PagePreview | M3 | DONE |
+| #11 | Main page + SSE client | M3 | DONE |
 | #12 | /api/download + ZIP | M4 | PENDING |
 | #13 | ApiKeyInput + DemoBanner | M4 | PENDING |
 | #14 | Polish pass | M4 | PENDING |
@@ -41,6 +41,34 @@
 ---
 
 ## Entries
+
+### [M3 #8–11] UI + Streaming — 2026-03-21 [DONE]
+
+**What was built:**
+- `UrlInputPanel` — two URL inputs with blur validation (`new URL()`), example pills, spinner button
+- `ProgressFeed` — live scrolling event log; spinner on last `status` event only while running; per-type styling (muted/success/error/bold)
+- `PageTabBar` — progressive tab row, accent border on active, null when no pages yet
+- `PagePreview` — sandboxed iframe via blob URL; `blobUrlRef` tracks URL for revocation; keyed on `page?.slug` to avoid thrashing on large HTML re-renders
+- `src/app/page.tsx` — full SSE client with `EventSource`, `hasStarted` flag (never resets), `sourceRef` ref (not state), all components wired
+- `vitest.config.ts` — added `@vitejs/plugin-react`, `setupFiles`, `coverage.include` for components; `// @vitest-environment jsdom` per-file directives
+- `src/test.d.ts` — global `@testing-library/jest-dom` type reference
+- 33 new component tests; 94 total passing
+
+**Decisions:**
+- `hasStarted` never resets: keeps layout visible after error or empty run — avoids jarring layout collapse
+- `EventSource` stored in `useRef` (not `useState`): prevents re-renders on assignment; cleanup closes on unmount
+- `scrollTo?.()` optional chain: jsdom doesn't implement `scrollTo` — guard prevents test failures without masking real browser bugs
+- `page?.slug` as blob URL effect dependency: stable page identity; `page.html` would thrash on large strings
+- Per-file `// @vitest-environment jsdom` instead of `environmentMatchGlobs`: more reliable across Vitest versions
+- No skeleton tabs: `CloneEvent` union has no discovery-count event type — deferred to M4 if needed
+- EventSource can't send custom headers: BYOK key not passed in M3; route falls back to `ANTHROPIC_API_KEY` env var
+
+**Gotchas:**
+- `@vitejs/plugin-react` must be in `vitest.config.ts` (not just `next.config.ts`) for JSX to parse in test files
+- `@testing-library/user-event` not in initial deps — required for realistic user interaction tests
+- `react-hooks/exhaustive-deps` warning on `PagePreview` effect — suppressed with `eslint-disable-next-line`; intentional design decision documented inline
+
+---
 
 ### [M2 #6] Composer utility — 2026-03-21 [DONE]
 
