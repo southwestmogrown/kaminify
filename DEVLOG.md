@@ -22,6 +22,22 @@
 
 ---
 
+## Bug Fixes
+
+### [BUG] Vercel 404 on favicon and index — 2026-03-21 [FIXED]
+
+**Symptoms:** `/favicon.ico` returning 404, then `/` returning 404 on Vercel production deployment.
+
+**Root cause:** Both 404s shared the same cause — the `main` branch contained only the initial commit (README.md, issues.md). No `package.json`, no `src/`. Vercel's production deployment watched `main`, found no framework, served nothing.
+
+**Fixes applied:**
+1. `public/favicon.ico` — copied favicon here so it is served as a static file directly, bypassing Next.js App Router metadata handling. The App Router serves `src/app/favicon.ico` via the metadata API; browsers also request `/favicon.ico` as a raw static path. Both are now covered.
+2. Merged M1 branch to `main` — the actual fix for all production 404s. No app code = nothing to serve.
+
+**Gotcha for future deploys:** Vercel production always builds from `main`. Never expect a feature branch to fix production — merge it.
+
+---
+
 ## Entries
 
 ### [M1 #1] Scaffold — 2026-03-21 [DONE]
