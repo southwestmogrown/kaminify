@@ -7,7 +7,7 @@
 | #1 | Scaffold | M1 | DONE |
 | #2 | TypeScript types | M1 | DONE |
 | #3 | Scraper utility | M1 | DONE |
-| #4 | Page discovery | M1 | PENDING |
+| #4 | Page discovery | M1 | DONE |
 | #5 | Extractors | M1 | PENDING |
 | #6 | Composer utility | M2 | PENDING |
 | #7 | /api/clone SSE route | M2 | PENDING |
