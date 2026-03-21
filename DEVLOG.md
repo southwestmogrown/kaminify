@@ -15,10 +15,10 @@
 | #9 | ProgressFeed | M3 | DONE |
 | #10 | PageTabBar + PagePreview | M3 | DONE |
 | #11 | Main page + SSE client | M3 | DONE |
-| #12 | /api/download + ZIP | M4 | PENDING |
-| #13 | ApiKeyInput + DemoBanner | M4 | PENDING |
-| #14 | Polish pass | M4 | PENDING |
-| #15 | README + deploy | M4 | PENDING |
+| #12 | /api/download + ZIP | M4 | DONE |
+| #13 | ApiKeyInput + DemoBanner | M4 | DONE |
+| #14 | Polish pass | M4 | DONE |
+| #15 | README + deploy | M4 | DONE |
 
 ---
 
@@ -41,6 +41,31 @@
 ---
 
 ## Entries
+
+### [M4 #12–15] Polish + Ship — 2026-03-21 [DONE]
+
+**What was built:**
+- `src/app/api/download/route.ts` — POST handler that collects archiver ZIP output into a `Buffer` via a `Writable` sink, returns `application/zip` response; compression level 6 (zlib default, good tradeoff for HTML)
+- `src/lib/demo.ts` — `getDemoSession`, `incrementDemoRun`, `getByokSession`, `saveByokSession`, `clearByokSession`; all guarded with `isServer()` check; uses existing `DemoSession`/`ByokSession` types from `types.ts` (which include `startedAt`/`addedAt` timestamps)
+- `src/components/ApiKeyInput.tsx` — fixed-position modal; password input; validates `key.startsWith('sk-ant-')`; calls `onSave(key)` + `onClose()` on valid submit; backdrop-click-to-close via `stopPropagation` on card
+- `src/components/DemoBanner.tsx` — sticky banner with 3 states (BYOK active / runs remaining / limit reached); consolidated into single render path with shared outer div
+- `src/app/page.tsx` — replaced `EventSource` + `sourceRef` with `fetch` + `ReadableStream` reader + `AbortController`; full BYOK/demo session wiring; Download button; responsive layout (`flex-col md:flex-row`)
+- `README.md` — complete rewrite with pipeline diagram, env vars table, demo/BYOK docs, tech stack, potential extensions
+- 27 new tests (demo.ts + download route + ApiKeyInput + DemoBanner); 121 total passing
+
+**Decisions:**
+- `fetch` + `ReadableStream` replaces `EventSource` — EventSource cannot send custom headers; one code path covers both demo (no header) and BYOK (`x-api-key` header)
+- Demo enforcement client-side only via `sessionStorage` — no server-side run counting needed for a portfolio project
+- `NEXT_PUBLIC_DEMO_RUN_LIMIT` env var — Next.js requires `NEXT_PUBLIC_` prefix for client-readable vars; added to `.env.example`
+- Compression level 6 (not 9) — HTML compresses well at any level; level 9 adds CPU blocking with negligible size benefit
+- `useMemo` for `activePage` — avoids `pages.find()` linear scan on unrelated renders (e.g. `isDownloading` toggle)
+- `AbortError` check in `catch` — intentional abort should not flip `isRunning`; handled in catch only, not `finally`
+
+**Gotchas:**
+- archiver `finish` listener must be registered before `finalize()` is called — the event fires immediately after `finalize()` resolves; registering after misses it (race condition fixed in download route)
+- `DemoSession` in `types.ts` includes `startedAt: string` field not in the original spec — agent used the canonical type rather than redefining a simpler one
+
+---
 
 ### [M3 #8–11] UI + Streaming — 2026-03-21 [DONE]
 

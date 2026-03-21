@@ -1,36 +1,94 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# kaminify
 
-## Getting Started
+Paste two URLs — a design source and a content source — and kaminify's AI pipeline scrapes both sites, extracts the visual design system from the first, pulls the structured content from the second, and uses Claude to generate a cloned multi-page site that applies the design of one to the content of the other. Pages appear progressively as they're generated; preview them live in-browser and download the full site as a ZIP.
 
-First, run the development server:
+**[kaminify.vercel.app](https://kaminify.vercel.app)**
+
+[Watch the walkthrough](LOOM_URL_HERE)
+
+---
+
+## Pipeline
+
+```text
+User submits designUrl + contentUrl
+  └── GET /api/clone?designUrl=X&contentUrl=Y   (SSE stream)
+        ├── scrapeSite(designUrl)                 scrape HTML + CSS
+        ├── scrapeSite(contentUrl)                scrape HTML + CSS
+        ├── discoverPages(contentSite)            parse nav → DiscoveredPage[]
+        ├── extractDesignSystem(designSite)       colors, fonts, spacing, components
+        └── for each discovered page:
+              extractPageContent(page)            headings, paragraphs, CTAs, meta
+              composePage(design, content, apiKey) → Claude → self-contained HTML
+              emit  { type: "page_complete", page }  (SSE)
+        └── emit  { type: "done" }                (SSE)
+```
+
+---
+
+## Local Setup
+
+```bash
+git clone https://github.com/your-username/kaminify.git
+cd kaminify
+npm install
+```
+
+Copy the example env file and fill in your Anthropic key:
+
+```bash
+cp .env.example .env.local
+```
+
+```env
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+Start the dev server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Environment Variables
 
-## Learn More
+| Variable | Required | Default | Description |
+| --- | --- | --- | --- |
+| `ANTHROPIC_API_KEY` | Yes | — | Server-side Anthropic key used for demo runs |
+| `DEMO_RUN_LIMIT` | No | `3` | Max clone runs allowed per session in demo mode |
+| `DEMO_PAGE_LIMIT` | No | `3` | Max pages cloned per run in demo mode |
+| `NEXT_PUBLIC_DEMO_RUN_LIMIT` | No | `3` | Client-visible run limit used for UI enforcement |
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Demo Mode / BYOK
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**Demo mode** — the hosted app gives every visitor 3 free runs using the server-side Anthropic key. No sign-up required.
 
-## Deploy on Vercel
+**Bring Your Own Key (BYOK)** — click "Use your own API key" in the banner to enter your Anthropic API key. It is stored in `sessionStorage` only, passed directly to the API as a request header, and never persisted on the server. BYOK mode removes all run and page limits.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Tech Stack
+
+| Layer | Choice |
+| --- | --- |
+| Framework | Next.js 15 (App Router) |
+| Language | TypeScript |
+| Styling | Tailwind CSS v4 |
+| AI | Anthropic Claude (claude-sonnet-4-6) |
+| HTML parsing | cheerio |
+| ZIP generation | archiver |
+| Deployment | Vercel |
+
+---
+
+## Potential Extensions
+
+- **Persistent history** — save clone jobs to a database so users can revisit or share previously generated sites.
+- **Custom prompts** — expose a prompt editor so users can steer Claude's interpretation of the design system (e.g., "make it darker", "use a two-column layout").
+- **Team sharing** — generate a shareable preview link per clone job, with expiry and password protection.
