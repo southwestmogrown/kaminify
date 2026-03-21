@@ -14,7 +14,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: 'kaminify',
-  description: 'Paste two URLs. Get a cloned site.',
+  description: 'Clone any site\'s design. Keep your content.',
 }
 
 export default function RootLayout({

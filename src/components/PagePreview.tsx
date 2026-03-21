@@ -35,7 +35,7 @@ export default function PagePreview({ page, isLoading }: PagePreviewProps) {
   if (isLoading) {
     return (
       <div className="flex flex-1 items-center justify-center" style={{ color: 'var(--color-text-muted)' }}>
-        <span>Loading preview...</span>
+        <span>Generating pages…</span>
       </div>
     )
   }
@@ -43,7 +43,7 @@ export default function PagePreview({ page, isLoading }: PagePreviewProps) {
   if (!page) {
     return (
       <div className="flex flex-1 items-center justify-center" style={{ color: 'var(--color-text-muted)' }}>
-        <span>Select a page to preview</span>
+        <span>Pages will appear here as they're generated</span>
       </div>
     )
   }

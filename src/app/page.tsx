@@ -150,11 +150,12 @@ export default function Home() {
         className="px-6 py-4 border-b flex items-center gap-4"
         style={{ borderColor: 'var(--color-border)' }}
       >
-        <h1 className="text-lg font-semibold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
+        <h1 className="text-lg font-semibold tracking-tight flex items-center gap-2" style={{ color: 'var(--color-text-primary)' }}>
+          <span className="logo-dot" />
           kaminify
         </h1>
-        <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-          Paste two URLs. Get a cloned site.
+        <span className="text-sm hidden sm:block" style={{ color: 'var(--color-text-muted)' }}>
+          Clone any site&apos;s design. Keep your content.
         </span>
         {apiKey && (
           <button
@@ -174,7 +175,53 @@ export default function Home() {
         onOpenApiKeyInput={() => setShowApiKeyInput(true)}
       />
 
-      <section className="px-6 py-8 w-full max-w-4xl mx-auto">
+      {!hasStarted && (
+        <div className="w-full max-w-4xl mx-auto px-6 pt-16 pb-8 text-center flex flex-col items-center gap-6">
+          {/* Badge */}
+          <div
+            className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-mono border"
+            style={{
+              backgroundColor: 'var(--color-accent-dim)',
+              borderColor: 'rgba(249,115,22,0.3)',
+              color: 'var(--color-accent-hover)',
+            }}
+          >
+            <span
+              style={{
+                display: 'inline-block',
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                backgroundColor: 'var(--color-accent)',
+                flexShrink: 0,
+              }}
+            />
+            Powered by Claude · Multi-page generation
+          </div>
+
+          {/* Headline */}
+          <h2
+            className="text-4xl sm:text-5xl font-bold tracking-tight leading-tight"
+            style={{ color: 'var(--color-text-primary)', letterSpacing: '-0.03em' }}
+          >
+            Clone any site&apos;s design.
+            <br />
+            <em style={{ fontStyle: 'normal', color: 'var(--color-accent)' }}>Keep your content.</em>
+          </h2>
+
+          {/* Sub */}
+          <p
+            className="text-base max-w-lg leading-relaxed"
+            style={{ color: 'var(--color-text-muted)', fontWeight: 300 }}
+          >
+            Paste a design URL and a content URL. Kaminify scrapes both, extracts
+            the design system, and generates a complete multi-page site — in
+            minutes, not months.
+          </p>
+        </div>
+      )}
+
+      <section className={`px-6 w-full max-w-4xl mx-auto ${hasStarted ? 'py-8' : 'pb-8'}`}>
         <UrlInputPanel
           onClone={startClone}
           isRunning={isRunning}
@@ -185,8 +232,8 @@ export default function Home() {
             <button
               onClick={handleDownload}
               disabled={isDownloading}
-              className="px-4 py-2 rounded-md text-sm font-medium text-white disabled:opacity-50"
-              style={{ backgroundColor: 'var(--color-accent)' }}
+              className="px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50"
+              style={{ backgroundColor: 'var(--color-accent)', color: '#000' }}
             >
               {isDownloading ? 'Preparing ZIP…' : 'Download ZIP'}
             </button>

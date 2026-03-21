@@ -38,7 +38,7 @@ export default function ApiKeyInput({ onSave, onClose }: ApiKeyInputProps) {
           Enter your Anthropic API key
         </h2>
         <p className="text-sm -mt-2" style={{ color: 'var(--color-text-muted)' }}>
-          Your key is stored in sessionStorage and never sent to our servers.
+          Your key stays in your browser session and is never stored on our servers. You control your costs and your data.
         </p>
 
         <div className="flex flex-col gap-1">
