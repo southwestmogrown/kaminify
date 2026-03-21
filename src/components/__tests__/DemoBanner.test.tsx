@@ -5,29 +5,29 @@ import userEvent from '@testing-library/user-event'
 import DemoBanner from '../DemoBanner'
 
 describe('DemoBanner', () => {
-  it('hasApiKey=true renders "Using your API key — unlimited runs"', () => {
+  it('hasApiKey=true renders "Your API key active — unlimited runs"', () => {
     render(<DemoBanner runsUsed={0} runLimit={3} hasApiKey={true} onOpenApiKeyInput={() => {}} />)
-    expect(screen.getByText(/Using your API key — unlimited runs/)).toBeInTheDocument()
+    expect(screen.getByText(/Your API key active — unlimited runs/)).toBeInTheDocument()
   })
 
   it('hasApiKey=true does NOT render run counts', () => {
     render(<DemoBanner runsUsed={2} runLimit={3} hasApiKey={true} onOpenApiKeyInput={() => {}} />)
-    expect(screen.queryByText(/of 3 demo runs used/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/of 3 free runs used/)).not.toBeInTheDocument()
   })
 
-  it('hasApiKey=false, runsUsed=1, runLimit=3 renders "1 of 3 demo runs used"', () => {
+  it('hasApiKey=false, runsUsed=1, runLimit=3 renders "1 of 3 free runs used · No account required"', () => {
     render(<DemoBanner runsUsed={1} runLimit={3} hasApiKey={false} onOpenApiKeyInput={() => {}} />)
-    expect(screen.getByText('1 of 3 demo runs used')).toBeInTheDocument()
+    expect(screen.getByText('1 of 3 free runs used · No account required')).toBeInTheDocument()
   })
 
-  it('hasApiKey=false, runsUsed=0, runLimit=3 renders "Use your own API key →" button', () => {
+  it('hasApiKey=false, runsUsed=0, runLimit=3 renders "Add your own API key →" button', () => {
     render(<DemoBanner runsUsed={0} runLimit={3} hasApiKey={false} onOpenApiKeyInput={() => {}} />)
-    expect(screen.getByRole('button', { name: /Use your own API key →/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Add your own API key →/ })).toBeInTheDocument()
   })
 
-  it('hasApiKey=false, runsUsed=3, runLimit=3 renders "Demo limit reached"', () => {
+  it('hasApiKey=false, runsUsed=3, runLimit=3 renders "Free runs used up"', () => {
     render(<DemoBanner runsUsed={3} runLimit={3} hasApiKey={false} onOpenApiKeyInput={() => {}} />)
-    expect(screen.getByText('Demo limit reached')).toBeInTheDocument()
+    expect(screen.getByText('Free runs used up')).toBeInTheDocument()
   })
 
   it('hasApiKey=false, runsUsed=3, runLimit=3 renders "Add your API key to continue" button', () => {
@@ -35,10 +35,10 @@ describe('DemoBanner', () => {
     expect(screen.getByRole('button', { name: /Add your API key to continue/ })).toBeInTheDocument()
   })
 
-  it('clicking "Use your own API key →" calls onOpenApiKeyInput', async () => {
+  it('clicking "Add your own API key →" calls onOpenApiKeyInput', async () => {
     const handler = vi.fn()
     render(<DemoBanner runsUsed={1} runLimit={3} hasApiKey={false} onOpenApiKeyInput={handler} />)
-    await userEvent.click(screen.getByRole('button', { name: /Use your own API key →/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Add your own API key →/ }))
     expect(handler).toHaveBeenCalledOnce()
   })
 

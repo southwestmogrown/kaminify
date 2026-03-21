@@ -32,7 +32,7 @@ afterEach(() => {
 describe('PagePreview', () => {
   it('renders placeholder when page is null', () => {
     render(<PagePreview page={null} />)
-    expect(screen.getByText('Select a page to preview')).toBeInTheDocument()
+    expect(screen.getByText("Pages will appear here as they're generated")).toBeInTheDocument()
   })
 
   it('calls createObjectURL when page is provided', async () => {

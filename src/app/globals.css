@@ -2,24 +2,29 @@
 
 :root {
   /* Base surfaces */
-  --color-bg-base: #090C10;
-  --color-bg-primary: #0D1117;
-  --color-bg-elevated: #161B22;
-  --color-bg-input: #1C2128;
-  --color-bg-hover: #21262D;
-  --color-border: #30363D;
-  --color-border-muted: #3D444D;
+  --color-bg-base: #07080d;
+  --color-bg-primary: #0d0f18;
+  --color-bg-elevated: #12141f;
+  --color-bg-input: #0d0f18;
+  --color-bg-hover: rgba(255,255,255,0.04);
 
-  /* Text */
-  --color-text-primary: #E6EDF3;
-  --color-text-secondary: #8B949E;
-  --color-text-muted: #656D76;
-  --color-text-ghost: #3D444D;
+  /* Borders */
+  --color-border: rgba(255,255,255,0.07);
+  --color-border-bright: rgba(255,255,255,0.14);
+
+  /* Text — warm off-white */
+  --color-text-primary: #e8e6e0;
+  --color-text-secondary: #9e9d98;
+  --color-text-muted: #6b6a65;
+  --color-text-ghost: #3d3c38;
+
+  /* Accent — orange */
+  --color-accent: #f97316;
+  --color-accent-hover: #fb923c;
+  --color-accent-dim: rgba(249,115,22,0.15);
 
   /* Semantic */
-  --color-accent: #1F6FEB;
-  --color-accent-hover: #388BFD;
-  --color-success: #3FB950;
+  --color-success: #1d9e75;
   --color-warning: #D29922;
   --color-error: #F85149;
 }
@@ -30,7 +35,50 @@
 }
 
 body {
-  background-color: #0D1117;
-  color: #E6EDF3;
+  background-color: #07080d;
+  color: #e8e6e0;
   font-family: var(--font-inter), sans-serif;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Noise texture overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+/* Subtle grid overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.07) 1px, transparent 1px);
+  background-size: 64px 64px;
+  pointer-events: none;
+  z-index: 0;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 0%, transparent 70%);
+}
+
+/* Logo dot animation */
+@keyframes logo-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.85); }
+}
+
+.logo-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: var(--color-accent);
+  border-radius: 50%;
+  animation: logo-pulse 2s ease-in-out infinite;
+  flex-shrink: 0;
 }

@@ -9,6 +9,7 @@ interface UrlInputPanelProps {
 }
 
 const EXAMPLES = [
+  { label: 'Stripe + me', design: 'https://stripe.com', content: 'https://github.com/shanewilkey' },
   { label: 'Stripe + GitHub', design: 'https://stripe.com', content: 'https://github.com' },
   { label: 'Linear + GitHub', design: 'https://linear.app', content: 'https://github.com' },
   { label: 'Vercel + GitHub', design: 'https://vercel.com', content: 'https://github.com' },
@@ -79,7 +80,7 @@ export default function UrlInputPanel({ onClone, isRunning, disabled }: UrlInput
             aria-label="Design source URL"
           />
           <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            The site whose visual style you want to use
+            The site whose visual style you want to clone
           </span>
           {designError && (
             <span className="text-xs" style={{ color: 'var(--color-error)' }}>
@@ -122,7 +123,7 @@ export default function UrlInputPanel({ onClone, isRunning, disabled }: UrlInput
       {/* Example pills */}
       <div className="flex flex-col gap-2">
         <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-          Try an example
+          Try an example →
         </span>
         <div className="flex gap-2 flex-wrap">
           {EXAMPLES.map((ex) => (
@@ -151,7 +152,7 @@ export default function UrlInputPanel({ onClone, isRunning, disabled }: UrlInput
         className="w-full py-2.5 rounded-md text-sm font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         style={{
           backgroundColor: canSubmit ? 'var(--color-accent)' : 'var(--color-bg-elevated)',
-          color: 'var(--color-text-primary)',
+          color: canSubmit ? '#000' : 'var(--color-text-muted)',
         }}
       >
         {isRunning && (

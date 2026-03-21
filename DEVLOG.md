@@ -22,6 +22,28 @@
 
 ---
 
+## Entries
+
+### [Landing Alignment] Visual identity + copy — 2026-03-21 [DONE]
+
+**What was built:**
+- `src/app/globals.css` — full token replacement: orange accent (`#f97316`) replaces blue (`#1F6FEB`); warmer/darker backgrounds (`#07080d` base, `#0d0f18` surface, `#12141f` elevated); warm off-white text (`#e8e6e0`); rgba borders; teal success (`#1d9e75`); noise texture + grid atmospheric body overlays; `logo-dot` CSS keyframe animation
+- `src/app/layout.tsx` — metadata description updated to "Clone any site's design. Keep your content."
+- `src/app/page.tsx` — animated orange logo dot in header; tagline updated; hero block when `!hasStarted` (badge pill + bold headline + sub-copy matching landing); Download button uses black text on orange bg
+- `src/components/UrlInputPanel.tsx` — helper text, button color (black on orange), "Try an example →", new "Stripe + me" pill
+- `src/components/DemoBanner.tsx` — copy aligned to landing ("Your API key active", "free runs used · No account required", "Add your own API key →", "Free runs used up")
+- `src/components/ApiKeyInput.tsx` — subtitle aligned to landing privacy copy
+- `src/components/PagePreview.tsx` — empty/loading state copy updated
+- All 121 tests updated and passing
+
+**Decisions:**
+- Orange accent from landing replaced blue wholesale — everything using `var(--color-accent)` automatically updated via CSS custom properties
+- `body::before` / `body::after` pseudo-elements for noise + grid: purely visual, `pointer-events: none`, `z-index: 0` — cannot interfere with app UI
+- Hero block only shown when `!hasStarted` — collapses cleanly once the pipeline runs so the two-column layout has full vertical space
+- Black text on orange buttons (`color: '#000'`) — matches landing `.btn-primary`; high contrast per WCAG AA on `#f97316`
+
+---
+
 ## Bug Fixes
 
 ### [BUG] Vercel 404 on favicon and index — 2026-03-21 [FIXED]

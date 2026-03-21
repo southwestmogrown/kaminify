@@ -14,7 +14,7 @@ export default function DemoBanner({ runsUsed, runLimit, hasApiKey, onOpenApiKey
   if (hasApiKey) {
     return (
       <div className={bannerClass} style={bannerStyle}>
-        <span style={{ color: 'var(--color-success)' }}>✓ Using your API key — unlimited runs</span>
+        <span style={{ color: 'var(--color-success)' }}>✓ Your API key active — unlimited runs</span>
       </div>
     )
   }
@@ -24,9 +24,9 @@ export default function DemoBanner({ runsUsed, runLimit, hasApiKey, onOpenApiKey
   return (
     <div className={bannerClass} style={{ ...bannerStyle, color: 'var(--color-text-secondary)' }}>
       {limitReached ? (
-        <span style={{ color: 'var(--color-warning)' }}>Demo limit reached</span>
+        <span style={{ color: 'var(--color-warning)' }}>Free runs used up</span>
       ) : (
-        <span>{runsUsed} of {runLimit} demo runs used</span>
+        <span>{runsUsed} of {runLimit} free runs used · No account required</span>
       )}
       <span> · </span>
       <button
@@ -34,7 +34,7 @@ export default function DemoBanner({ runsUsed, runLimit, hasApiKey, onOpenApiKey
         className="underline cursor-pointer"
         style={{ color: 'var(--color-accent)' }}
       >
-        {limitReached ? 'Add your API key to continue' : 'Use your own API key →'}
+        {limitReached ? 'Add your API key to continue' : 'Add your own API key →'}
       </button>
     </div>
   )
