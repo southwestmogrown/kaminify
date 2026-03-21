@@ -81,6 +81,28 @@ describe('extractDesignSystem', () => {
     const ds = extractDesignSystem(site)
     expect(ds.rawCss).toBe(css)
   })
+
+  it('extracts CSS custom property blocks into cssVariables', () => {
+    const css = ':root { --color-accent: #f97316; --font-size-base: 16px; }'
+    const site = makeSite('', css)
+    const ds = extractDesignSystem(site)
+    expect(ds.cssVariables).toContain('--color-accent')
+    expect(ds.cssVariables).toContain('--font-size-base')
+  })
+
+  it('returns empty string for cssVariables when no :root block', () => {
+    const site = makeSite('', 'body { color: red; }')
+    const ds = extractDesignSystem(site)
+    expect(ds.cssVariables).toBe('')
+  })
+
+  it('limits colorPalette to 20 entries', () => {
+    const manyColors = Array.from({ length: 30 }, (_, i) => `#${String(i).padStart(2, '0')}0000`)
+      .join(' ')
+    const site = makeSite('', `body { color: ${manyColors}; }`)
+    const ds = extractDesignSystem(site)
+    expect(ds.colorPalette.length).toBeLessThanOrEqual(20)
+  })
 })
 
 describe('extractPageContent', () => {

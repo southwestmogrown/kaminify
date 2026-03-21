@@ -3,12 +3,26 @@ import type { DesignSystem, DiscoveredPage, PageContent, ScrapedSite } from './t
 
 // --- Design System Extraction ---
 
+const CSS_VARIABLE_RE = /:root\s*\{([^}]*)\}/g
+const PATTERN_CHAR_LIMIT = 1200
+const COLOR_LIMIT = 20
+
 const HEX_RE = /#([0-9a-fA-F]{3,8})\b/g
 const RGB_RE = /rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+[^)]*\)/g
 const HSL_RE = /hsla?\(\s*[\d.]+\s*,\s*[\d.%]+\s*,\s*[\d.%]+[^)]*\)/g
 const FONT_FAMILY_RE = /font-family\s*:\s*([^;}{]+)/g
 const SPACING_RE = /(?:margin|padding)\s*:\s*([^;}{]+)/g
 const BORDER_RADIUS_RE = /border-radius\s*:\s*([^;}{]+)/g
+
+function extractCssVariables(css: string): string {
+  const blocks: string[] = []
+  let match
+  const re = new RegExp(CSS_VARIABLE_RE.source, 'g')
+  while ((match = re.exec(css)) !== null) {
+    blocks.push(`:root {${match[1]}}`)
+  }
+  return blocks.join('\n')
+}
 
 function normalizeHex(hex: string): string {
   const h = hex.replace('#', '').toLowerCase()
@@ -29,7 +43,7 @@ function extractColors(css: string): string[] {
   for (const match of css.matchAll(HSL_RE)) {
     found.add(match[0].replace(/\s+/g, ' '))
   }
-  return [...found]
+  return [...found].slice(0, COLOR_LIMIT)
 }
 
 function extractFonts(css: string): string[] {
@@ -69,7 +83,7 @@ function extractBorderRadius(css: string): string[] {
 function findComponent($: cheerio.CheerioAPI, selectors: string[]): string {
   for (const sel of selectors) {
     const el = $(sel).first()
-    if (el.length) return $.html(el)
+    if (el.length) return $.html(el).slice(0, PATTERN_CHAR_LIMIT)
   }
   return ''
 }
@@ -114,6 +128,7 @@ export function extractDesignSystem(site: ScrapedSite): DesignSystem {
   ])
 
   return {
+    cssVariables: extractCssVariables(site.css),
     colorPalette: extractColors(site.css),
     fontStack: extractFonts(site.css),
     spacing: extractSpacing(site.css),

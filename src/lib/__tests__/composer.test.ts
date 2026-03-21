@@ -13,6 +13,7 @@ vi.mock('@anthropic-ai/sdk', () => {
 import { composePage } from '../composer'
 
 const makeDesign = (rawCss = 'body { color: red; }'): DesignSystem => ({
+  cssVariables: '',
   colorPalette: ['#ff0000'],
   fontStack: ['Arial'],
   spacing: ['8px'],
