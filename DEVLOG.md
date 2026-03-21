@@ -9,8 +9,8 @@
 | #3 | Scraper utility | M1 | DONE |
 | #4 | Page discovery | M1 | DONE |
 | #5 | Extractors | M1 | DONE |
-| #6 | Composer utility | M2 | PENDING |
-| #7 | /api/clone SSE route | M2 | PENDING |
+| #6 | Composer utility | M2 | DONE |
+| #7 | /api/clone SSE route | M2 | DONE |
 | #8 | UrlInputPanel | M3 | PENDING |
 | #9 | ProgressFeed | M3 | PENDING |
 | #10 | PageTabBar + PagePreview | M3 | PENDING |
@@ -41,6 +41,42 @@
 ---
 
 ## Entries
+
+### [M2 #6] Composer utility — 2026-03-21 [DONE]
+
+**What was built:**
+- `src/lib/composer.ts` — `composePage(design, content, allPages, apiKey)` calls Claude (`claude-sonnet-4-6`, max_tokens 8192) with a structured JSON user message containing the design system, page content, navigation structure, and active slug
+- CSS truncated to 8000 chars before passing to Claude
+- Validates response starts with `<!DOCTYPE html>` (case-insensitive); throws descriptive error otherwise
+- Anthropic client instantiated per-call (not module-level) to support BYOK key injection
+- 6 unit tests via `vi.mock('@anthropic-ai/sdk')` — all passing
+
+**Decisions:**
+- `claude-sonnet-4-6` — capable enough for polished HTML generation, cost-effective vs Opus
+- Client instantiated inside function, not at module level — avoids stale key if apiKey changes between calls
+- `block?.type === 'text'` optional chain — safe against empty content array (code review catch)
+
+**Gotchas:**
+- `vi.mock` factory for Anthropic must return a plain constructor function (not `vi.fn().mockImplementation`) — otherwise `new Anthropic()` throws "not a constructor"
+
+---
+
+### [M2 #7] /api/clone SSE route — 2026-03-21 [DONE]
+
+**What was built:**
+- `src/app/api/clone/route.ts` — GET handler streaming SSE events for the full clone pipeline
+- Auth: `x-api-key` header (BYOK) takes precedence over `ANTHROPIC_API_KEY` env var; 401 if neither
+- Pipeline: scrape design → scrape content → discover pages → extract design system → per-page: extract content + compose + emit `page_complete`
+- All errors caught → `error` SSE event → stream closes
+- `maxPages` read from `DEMO_PAGE_LIMIT` env var (default 6); full session tracking deferred to M4
+- `eslint.config.mjs` updated to ignore `coverage/**` (lint was flagging generated coverage files)
+- 9 route unit tests with all lib functions mocked — all passing
+
+**Decisions:**
+- Auth simplified for M2: no cookie/session tracking — full demo session (run counts, session IDs) is M4 work when the UI is built
+- `extractPageContent` called without `await` (it is synchronous; spec incorrectly marks it async)
+
+---
 
 ### [M1 #1] Scaffold — 2026-03-21 [DONE]
 
