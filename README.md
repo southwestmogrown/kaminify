@@ -2,7 +2,7 @@
 
 Paste two URLs — a design source and a content source — and kaminify's AI pipeline scrapes both sites, extracts the visual design system from the first, pulls the structured content from the second, and uses Claude to generate a cloned multi-page site that applies the design of one to the content of the other. Pages appear progressively as they're generated; preview them live in-browser and download the full site as a ZIP.
 
-**[kaminify.vercel.app](https://kaminify.vercel.app)**
+**[kaminify.com](https://kaminify.com)**
 
 [Watch the walkthrough](LOOM_URL_HERE)
 
