@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { extractDesignSystem, extractPageContent } from '../extractor'
 import type { DiscoveredPage, ScrapedSite } from '../types'
 
-function makeSite(html: string, css = '', url = 'https://example.com'): ScrapedSite {
-  return { url, html, css, title: '' }
+function makeSite(html: string, css = '', url = 'https://example.com', scripts = ''): ScrapedSite {
+  return { url, html, css, scripts, title: '' }
 }
 
 function makePage(overrides: Partial<DiscoveredPage> = {}): DiscoveredPage {
@@ -94,6 +94,33 @@ describe('extractDesignSystem', () => {
     const site = makeSite('', 'body { color: red; }')
     const ds = extractDesignSystem(site)
     expect(ds.cssVariables).toBe('')
+  })
+
+  it('extracts <section> elements into sections[]', () => {
+    const site = makeSite('<html><body><nav>nav</nav><section><h2>About</h2><p>Hello world</p></section><section><h2>Skills</h2></section></body></html>')
+    const ds = extractDesignSystem(site)
+    expect(ds.sections.length).toBeGreaterThan(0)
+    expect(ds.sections[0]).toContain('<section')
+  })
+
+  it('excludes nav/header/footer from sections[]', () => {
+    const site = makeSite('<html><body><nav>nav</nav><footer>footer</footer><section><h2>Work</h2></section></body></html>')
+    const ds = extractDesignSystem(site)
+    expect(ds.sections.every(s => !s.startsWith('<nav') && !s.startsWith('<footer'))).toBe(true)
+  })
+
+  it('extracts animation script patterns into interactivityPatterns', () => {
+    const animScript = 'const canvas = document.getElementById("c"); requestAnimationFrame(draw);'
+    const site = makeSite('', '', 'https://example.com', animScript)
+    const ds = extractDesignSystem(site)
+    expect(ds.interactivityPatterns).toContain('requestAnimationFrame')
+  })
+
+  it('ignores non-animation scripts in interactivityPatterns', () => {
+    const boilerplate = 'document.addEventListener("DOMContentLoaded", function() { console.log("ready"); });'
+    const site = makeSite('', '', 'https://example.com', boilerplate)
+    const ds = extractDesignSystem(site)
+    expect(ds.interactivityPatterns).toBe('')
   })
 
   it('limits colorPalette to 20 entries', () => {

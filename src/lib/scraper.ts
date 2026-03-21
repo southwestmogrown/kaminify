@@ -69,6 +69,14 @@ export async function scrapeSite(url: string): Promise<ScrapedSite> {
 
   const css = [...inlineStyles, ...linkedCss].join('\n')
 
+  // Collect inline script content before stripping (animation/canvas patterns for design extraction)
+  const scriptBlocks: string[] = []
+  $('script:not([src])').each((_, el) => {
+    const content = $(el).html()?.trim() ?? ''
+    if (content) scriptBlocks.push(content)
+  })
+  const scripts = scriptBlocks.join('\n/* --- */\n')
+
   // Strip scripts and noscript before returning HTML
   $('script, noscript').remove()
 
@@ -76,6 +84,7 @@ export async function scrapeSite(url: string): Promise<ScrapedSite> {
     url,
     html: $.html(),
     css,
+    scripts,
     title,
   }
 }

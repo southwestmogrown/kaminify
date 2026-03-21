@@ -61,6 +61,33 @@ describe('scrapeSite', () => {
     expect(result.html).toContain('<p>Content</p>')
   })
 
+  it('captures inline script content in scripts field before stripping', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        makeResponse(
+          '<html><head></head><body><script>requestAnimationFrame(draw);</script></body></html>'
+        )
+      )
+    )
+    const result = await scrapeSite('https://example.com')
+    expect(result.scripts).toContain('requestAnimationFrame')
+    expect(result.html).not.toContain('requestAnimationFrame')
+  })
+
+  it('does not capture external script src in scripts field', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        makeResponse(
+          '<html><head></head><body><script src="/bundle.js"></script></body></html>'
+        )
+      )
+    )
+    const result = await scrapeSite('https://example.com')
+    expect(result.scripts).not.toContain('bundle.js')
+  })
+
   it('strips <noscript> tags from returned HTML', async () => {
     vi.stubGlobal(
       'fetch',

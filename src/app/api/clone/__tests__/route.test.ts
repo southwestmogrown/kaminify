@@ -35,6 +35,8 @@ const fakeDesign: DesignSystem = {
   cssVariables: '',
   colorPalette: [], fontStack: [], spacing: [], borderRadius: [],
   componentPatterns: { nav: '', hero: '', footer: '', card: '', button: '' },
+  sections: [],
+  interactivityPatterns: '',
   rawCss: '',
 }
 const fakeContent: PageContent = {
