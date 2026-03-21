@@ -16,6 +16,7 @@ export interface ScrapedSite {
 
 // Extracted design system from the design source
 export interface DesignSystem {
+  cssVariables: string  // :root { } block(s) — highest-signal design tokens
   colorPalette: string[]
   fontStack: string[]
   spacing: string[]
@@ -27,7 +28,7 @@ export interface DesignSystem {
     card: string    // raw HTML of a representative card ("" if not found)
     button: string  // raw HTML of a CTA button ("" if not found)
   }
-  rawCss: string  // full CSS, truncated to 8000 chars before passing to Claude
+  rawCss: string  // full CSS (stored unmodified; sliced before passing to Claude)
 }
 
 // Extracted content from one page of the content site

@@ -1,21 +1,18 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { DesignSystem, DiscoveredPage, PageContent } from './types'
 
-const CSS_CHAR_LIMIT = 8000
+const RAW_CSS_LIMIT = 2500
 
-const SYSTEM_PROMPT = `You are an expert web developer. You will be given a design system extracted
-from one website and content extracted from another. Your job is to produce
-a complete, self-contained HTML page that:
+const SYSTEM_PROMPT = `You are an expert web developer. Reproduce the visual design of one site using the content of another.
 
-1. Uses the visual design (colors, fonts, spacing, component patterns) from the design system
-2. Fills that design with the provided content
-3. Includes a working navigation linking to all provided pages
-4. Is entirely self-contained — all CSS must be inline or in a <style> tag, no external dependencies
-5. Looks polished and professional
-6. Uses semantic HTML5 elements
+Rules (all mandatory):
+1. SELF-CONTAINED: no <link> tags, no @import rules, no external font URLs, no CDN scripts. All CSS in a <style> block. Use system font stacks (e.g. -apple-system, ui-sans-serif, Georgia) unless a font-face is provided inline.
+2. CONTENT ONLY: use exclusively the text in pageContent. Never invent statistics, project names, testimonials, or any text not present in the input.
+3. DESIGN TOKENS: apply cssVariables, colorPalette, and fontStack faithfully. Mirror the visual hierarchy, spacing feel, and component shapes from componentPatterns.
+4. NAVIGATION: render a nav with links to every entry in the navigation array. The currentSlug entry must be visually active/highlighted.
+5. Semantic HTML5, polished, and responsive.
 
-Return ONLY the complete HTML document starting with <!DOCTYPE html>.
-No explanation, no markdown, no code fences.`
+Return ONLY the HTML document starting with <!DOCTYPE html>. No explanation, no markdown, no code fences.`
 
 export async function composePage(
   design: DesignSystem,
@@ -25,14 +22,18 @@ export async function composePage(
 ): Promise<string> {
   const client = new Anthropic({ apiKey })
 
+  // Strip :root blocks (already in cssVariables) then take first RAW_CSS_LIMIT chars of rules
+  const rawCssSnippet = design.rawCss
+    .replace(/:root\s*\{[^}]*\}/g, '')
+    .slice(0, RAW_CSS_LIMIT)
+
   const userMessage = JSON.stringify({
     designSystem: {
+      cssVariables: design.cssVariables,
       colorPalette: design.colorPalette,
       fontStack: design.fontStack,
-      spacing: design.spacing,
-      borderRadius: design.borderRadius,
       componentPatterns: design.componentPatterns,
-      rawCss: design.rawCss.slice(0, CSS_CHAR_LIMIT),
+      rawCss: rawCssSnippet,
     },
     pageContent: {
       title: content.title,
