@@ -6,7 +6,7 @@
 |---|---|---|---|
 | #1 | Scaffold | M1 | DONE |
 | #2 | TypeScript types | M1 | DONE |
-| #3 | Scraper utility | M1 | PENDING |
+| #3 | Scraper utility | M1 | DONE |
 | #4 | Page discovery | M1 | PENDING |
 | #5 | Extractors | M1 | PENDING |
 | #6 | Composer utility | M2 | PENDING |
