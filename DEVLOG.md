@@ -5,7 +5,7 @@
 | Issue | Title | Milestone | Status |
 |---|---|---|---|
 | #1 | Scaffold | M1 | DONE |
-| #2 | TypeScript types | M1 | PENDING |
+| #2 | TypeScript types | M1 | DONE |
 | #3 | Scraper utility | M1 | PENDING |
 | #4 | Page discovery | M1 | PENDING |
 | #5 | Extractors | M1 | PENDING |
