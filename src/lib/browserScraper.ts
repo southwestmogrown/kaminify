@@ -11,7 +11,12 @@ export async function scrapeWithBrowser(url: string): Promise<ScrapedSite> {
     throw new Error('BROWSERLESS_WS_URL is not configured — browser rendering unavailable')
   }
 
-  const browser = await puppeteer.connect({ browserWSEndpoint: wsUrl })
+  let browser: Awaited<ReturnType<typeof puppeteer.connect>>
+  try {
+    browser = await puppeteer.connect({ browserWSEndpoint: wsUrl })
+  } catch {
+    throw new Error('Failed to connect to browser service — check BROWSERLESS_WS_URL')
+  }
   const page = await browser.newPage()
 
   try {
