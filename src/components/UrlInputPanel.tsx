@@ -77,8 +77,7 @@ export default function UrlInputPanel({ onClone, isRunning, disabled, model, onM
             type="url"
             placeholder="https://stripe.com"
             value={designUrl}
-            onChange={(e) => setDesignUrl(e.target.value)}
-            onBlur={() => setDesignError(validateUrl(designUrl))}
+            onChange={(e) => { setDesignUrl(e.target.value); setDesignError('') }}
             className="px-3 py-2 rounded-md text-sm border focus:outline-none focus:border-[var(--color-accent)]"
             style={{
               backgroundColor: 'var(--color-bg-input)',
@@ -107,8 +106,7 @@ export default function UrlInputPanel({ onClone, isRunning, disabled, model, onM
             type="url"
             placeholder="https://your-site.com"
             value={contentUrl}
-            onChange={(e) => setContentUrl(e.target.value)}
-            onBlur={() => setContentError(validateUrl(contentUrl))}
+            onChange={(e) => { setContentUrl(e.target.value); setContentError('') }}
             className="px-3 py-2 rounded-md text-sm border focus:outline-none focus:border-[var(--color-accent)]"
             style={{
               backgroundColor: 'var(--color-bg-input)',
