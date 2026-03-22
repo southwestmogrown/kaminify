@@ -46,7 +46,17 @@ export async function GET(request: Request): Promise<Response> {
         for (const page of pages) {
           send(controller, { type: 'status', message: `Generating ${page.navLabel}...` })
           const content = extractPageContent(contentSite, page)
-          const html = await composePage(designSystem, content, pages, apiKey)
+          const start = Date.now()
+          const tick = setInterval(() => {
+            const s = Math.round((Date.now() - start) / 1000)
+            send(controller, { type: 'progress', message: `Generating ${page.navLabel}... ${s}s` })
+          }, 2000)
+          let html: string
+          try {
+            html = await composePage(designSystem, content, pages, apiKey)
+          } finally {
+            clearInterval(tick)
+          }
           const clonedPage: ClonedPage = {
             slug: page.slug,
             title: page.title,

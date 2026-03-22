@@ -9,6 +9,7 @@ export async function renderSite(url: string): Promise<string> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ url, waitForTimeout: 3000 }),
+    signal: AbortSignal.timeout(30_000),
   })
 
   if (!response.ok) {

@@ -12,13 +12,13 @@ function Spinner() {
   return (
     <svg
       aria-label="loading"
-      className="inline-block w-3 h-3 animate-spin shrink-0"
+      className="inline-block w-4 h-4 animate-spin shrink-0"
       viewBox="0 0 24 24"
       fill="none"
     >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
       <path
-        className="opacity-75"
+        className="opacity-90"
         fill="currentColor"
         d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
       />
@@ -51,20 +51,35 @@ export default function ProgressFeed({ events, isRunning }: ProgressFeedProps) {
     if (el) el.scrollTo?.({ top: el.scrollHeight, behavior: 'smooth' })
   }, [events.length])
 
+  // Latest progress message to overlay on the active step
+  const lastProgress = [...events].reverse().find((e) => e.type === 'progress')
+  const progressMessage = lastProgress?.type === 'progress' ? lastProgress.message : null
+
+  // Filter out progress events — they update inline, not as new rows
+  const displayEvents = events.filter((e) => e.type !== 'progress')
+
   return (
     <div
       ref={containerRef}
       className="overflow-y-auto h-full p-4"
       style={{ fontFamily: 'var(--font-mono)', fontSize: '13px' }}
     >
-      {events.map((event, i) => {
-        const isLast = i === events.length - 1
+      {displayEvents.map((event, i) => {
+        const isLast = i === displayEvents.length - 1
 
         if (event.type === 'status') {
+          const label = isLast && isRunning && progressMessage ? progressMessage : event.message
           return (
-            <div key={i} className="flex items-center gap-2 py-1" style={{ color: 'var(--color-text-muted)' }}>
-              {isLast && isRunning ? <Spinner /> : <span className="w-3 shrink-0">–</span>}
-              <span>{event.message}</span>
+            <div
+              key={i}
+              className="flex items-center gap-2 py-1"
+              style={{ color: isLast && isRunning ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}
+            >
+              {isLast && isRunning
+                ? <Spinner />
+                : <span className="w-4 shrink-0 text-center" style={{ color: 'var(--color-text-muted)' }}>–</span>
+              }
+              <span>{label}</span>
             </div>
           )
         }
@@ -81,7 +96,7 @@ export default function ProgressFeed({ events, isRunning }: ProgressFeedProps) {
         if (event.type === 'error') {
           return (
             <div key={i} className="flex items-start gap-2 py-1" style={{ color: 'var(--color-error)' }}>
-              <span className="w-3 shrink-0 mt-0.5">✕</span>
+              <span className="w-4 shrink-0 mt-0.5 text-center">✕</span>
               <span>{event.error}</span>
             </div>
           )
