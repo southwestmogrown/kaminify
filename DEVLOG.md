@@ -44,31 +44,40 @@
 
 ---
 
-### [feat/puppeteer-headless-render] JS rendering + extraction hardening — 2026-03-21 [IN PROGRESS — PR #27]
+### [feat/puppeteer-headless-render] UX polish + pipeline stabilisation — 2026-03-21 [DONE — PR #30 → main]
 
 **What was built:**
-- `src/lib/renderer.ts` — `renderSite(url)` calls Browserless.io `/content` API (POST, `waitForTimeout: 3000`, 30s `AbortSignal`); throws fast on missing `BROWSERLESS_API_KEY`
-- `src/lib/scraper.ts` — `isContentThin()` heuristic (headings < 2 AND paragraphs > 30 chars < 2); calls `renderSite` only when `BROWSERLESS_API_KEY` is set and content is thin; captures inline `<script>` blocks into `scripts` field before stripping
-- `src/lib/extractor.ts` — `extractCssVariables()` (`:root {}` blocks as highest-signal design tokens); `extractSections()` (up to 5 `<section>/<article>` blocks, capped 1000 chars each, excludes nav/header/footer); `extractInteractivity()` (filters script blocks for canvas/Three.js/GSAP/animation patterns)
-- `src/lib/composer.ts` — 8-rule system prompt (SELF-CONTAINED, USE ALL CONTENT, CONTENT ONLY, DESIGN TOKENS, INTERACTIVITY, STRUCTURE, NAVIGATION, Semantic HTML5); `RAW_CSS_LIMIT` reduced to 2500; `cssVariables`/`sections`/`interactivityPatterns` added to prompt; external fonts banned; Anthropic client timeout set to 55s
-- `src/lib/types.ts` — `scripts: string` on `ScrapedSite`; `cssVariables`/`sections`/`interactivityPatterns` on `DesignSystem`; `progress` event added to `CloneEvent`
 - `src/app/api/clone/route.ts` — progress ticker: `setInterval` every 2s during each `composePage` call, sends `{ type: 'progress', message: 'Generating X... Ns' }`; `clearInterval` in `finally`
 - `src/components/ProgressFeed.tsx` — progress events update the active step label in-place (no list flooding); spinner enlarged to `w-4 h-4`, higher opacity; active step renders in `text-primary` vs muted for completed steps
 - `src/app/page.tsx` — red **Stop** button in Pipeline header while running; calls `abortRef.current?.abort()` to halt fetch and stop token burn immediately
-- `vercel.json` — `maxDuration: 60` for clone route
-- 138 tests passing
+- `src/components/GeneratingAnimation.tsx` — Three.js particle network fills the preview panel during generation; 200 particles drift in 3D space, connected by indigo/violet lines based on proximity; orbiting camera; lazy-loaded via `next/dynamic` — zero impact on initial bundle
+- `src/lib/composer.ts` — simplified system prompt to 4 hard constraints only (self-contained HTML, no invented content, design tokens, navigation); removed prescriptive layout rules that were over-constraining Claude's output
+- `vercel.json` — `maxDuration: 60` (Hobby plan ceiling)
+- 125 tests passing
+
+**What was attempted and reverted:**
+- Browserless.io JS rendering fallback (`renderer.ts`) — cascading timeouts broke the pipeline; `scripts`/`sections`/`interactivityPatterns` extraction added complexity without reliable gains; fully reverted, clean baseline restored at `0f2410e`
 
 **Decisions:**
-- Browserless.io over Puppeteer/playwright — no binary bundling, no Vercel size limit risk, SLA-backed, single env var; `puppeteer-core` + `@sparticuz/chromium-min` removed after discovering `CHROMIUM_REMOTE_EXEC_PATH` requirement made Vercel deployment non-trivial
-- `isContentThin` uses `&&` not `||` — a page can have no headings but rich `<p>` content (or vice versa); both thin together signals JS-rendered
-- 55s Anthropic timeout — Anthropic SDK defaults to 600s; a stalled Claude call was causing 5+ minute silent hangs; 55s leaves headroom within Vercel's 60s `maxDuration`
-- 30s AbortSignal on Browserless fetch — same reason; uncapped fetch would hang the pipeline indefinitely if Browserless is slow
 - Progress ticker over token streaming — avoids refactoring composer tests and the Anthropic mock; elapsed-time ticker gives equivalent UX signal (proof of life) with no added complexity
-- `BROWSERLESS_API_KEY` guard in scraper — degrades gracefully to static HTML when key absent; static sites with rich content skip Browserless entirely
+- Three.js lazy-loaded — `next/dynamic({ ssr: false })` keeps it out of the SSR bundle; only fetched when the animation actually mounts
+- Simpler prompt = better output — numbered rules constrained Claude's layout decisions; removing them restored reliable, complete page generation
+- JS-rendered sites remain an open problem — requires a dedicated solution (see Future Features)
 
-**Gotchas:**
-- `vi.mock` factory cannot reference a `const` declared in the same file — must use `vi.hoisted(() => ({ ... }))` so the mock factory can reference the variable after hoisting
-- Module-level `const` reading `process.env` is evaluated once at import time — `vi.stubEnv` won't affect it; env reads must be inside the exported function
+---
+
+## Future Features
+
+| Priority | Feature | Notes |
+|---|---|---|
+| P0 | **JS-rendered site support** | Sites built on React/Vue/Next serve empty HTML to static scrapers. Need headless browser execution — options: Browserless.io (tried, timeout issues), Playwright in a long-running container, or a dedicated scrape microservice on AWS Lambda with higher timeout budget |
+| P1 | **Auth + billing** | Free tier with BYOK (current); paid tier without API key (managed key, usage metered). Options: Clerk/Auth.js for auth, Stripe for billing, usage table in Postgres/Supabase |
+| P1 | **Site storage + CRUD** | Persist generated sites server-side. Simple list view, re-open/preview, delete. Stretch: inline HTML editor for hotfixes on the generated output |
+| P2 | **Prompt iteration** | A/B different system prompts, track which produces better output. Could expose a "quality" rating UI to collect signal |
+| P2 | **Design token editor** | Let the user tweak color palette / fonts / spacing before generation — or after, with live re-render |
+| P2 | **Mobile preview toggle** | Resize the iframe to 375px width to check responsive output without leaving the app |
+| P3 | **One-click deploy** | "Deploy to Vercel / Netlify" button on each generated page — POST to their deploy APIs with the HTML as a static asset |
+| P3 | **Template library** | Save and reuse extracted design systems. Clone a new content site onto a saved design without re-scraping |
 
 ---
 
