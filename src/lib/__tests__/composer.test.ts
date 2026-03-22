@@ -19,6 +19,8 @@ const makeDesign = (rawCss = 'body { color: red; }'): DesignSystem => ({
   spacing: ['8px'],
   borderRadius: ['4px'],
   componentPatterns: { nav: '<nav/>', hero: '', footer: '', card: '', button: '' },
+  sections: [],
+  interactivityPatterns: '',
   rawCss,
 })
 

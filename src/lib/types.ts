@@ -9,8 +9,9 @@ export interface DiscoveredPage {
 // Raw scraped data from a URL
 export interface ScrapedSite {
   url: string
-  html: string  // full raw HTML (scripts stripped)
-  css: string   // all inline and linked CSS concatenated
+  html: string     // full raw HTML (scripts stripped)
+  css: string      // all inline and linked CSS concatenated
+  scripts: string  // inline <script> block content before stripping (animation/canvas code)
   title: string
 }
 
@@ -28,6 +29,8 @@ export interface DesignSystem {
     card: string    // raw HTML of a representative card ("" if not found)
     button: string  // raw HTML of a CTA button ("" if not found)
   }
+  sections: string[]             // broader structural <section>/<article> blocks
+  interactivityPatterns: string  // animation/canvas/Three.js script patterns
   rawCss: string  // full CSS (stored unmodified; sliced before passing to Claude)
 }
 

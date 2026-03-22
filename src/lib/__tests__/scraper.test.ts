@@ -1,4 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+const { mockRenderSite } = vi.hoisted(() => ({ mockRenderSite: vi.fn() }))
+vi.mock('../renderer', () => ({ renderSite: mockRenderSite }))
 import { scrapeSite } from '../scraper'
 
 // Helper to create a mock Response
@@ -13,6 +16,9 @@ function makeResponse(body: string, ok = true, status = 200): Response {
 describe('scrapeSite', () => {
   beforeEach(() => {
     vi.unstubAllGlobals()
+    vi.clearAllMocks()
+    // Default: renderer rejects — scraper catches and returns static HTML
+    mockRenderSite.mockRejectedValue(new Error('headless disabled in tests'))
   })
 
   it('returns a valid ScrapedSite for a simple page', async () => {
@@ -192,5 +198,43 @@ describe('scrapeSite', () => {
     vi.stubGlobal('fetch', fetchMock)
     const result = await scrapeSite('https://example.com')
     expect(result.css).toContain('.base-resolved {}')
+  })
+
+  it('captures inline script content in scripts field before stripping', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      makeResponse('<html><head></head><body><script>requestAnimationFrame(draw);</script></body></html>')
+    ))
+    const result = await scrapeSite('https://example.com')
+    expect(result.scripts).toContain('requestAnimationFrame')
+    expect(result.html).not.toContain('requestAnimationFrame')
+  })
+
+  it('triggers renderSite when static content is thin', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      makeResponse('<html><head><title>Test</title></head><body><p>Hi</p></body></html>')
+    ))
+    mockRenderSite.mockResolvedValue('<html><head></head><body><h1>Rich</h1><h2>Content</h2><p>This is a long paragraph with sufficient content for detection.</p></body></html>')
+    const result = await scrapeSite('https://example.com')
+    expect(mockRenderSite).toHaveBeenCalledWith('https://example.com')
+    expect(result.html).toContain('<h1>Rich</h1>')
+  })
+
+  it('skips renderSite when static content is rich', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      makeResponse('<html><head></head><body><h1>Title</h1><h2>Sub</h2><h3>Sub2</h3><p>This is a long enough paragraph to count as real content here.</p></body></html>')
+    ))
+    mockRenderSite.mockResolvedValue('<html>should not be used</html>')
+    await scrapeSite('https://example.com')
+    expect(mockRenderSite).not.toHaveBeenCalled()
+  })
+
+  it('returns static html when renderSite fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      makeResponse('<html><head><title>Thin</title></head><body><p>short</p></body></html>')
+    ))
+    mockRenderSite.mockRejectedValue(new Error('chromium unavailable'))
+    const result = await scrapeSite('https://example.com')
+    expect(result.url).toBe('https://example.com')
+    // Should not throw — static html returned as fallback
   })
 })
