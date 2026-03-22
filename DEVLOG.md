@@ -24,6 +24,20 @@
 
 ## Entries
 
+### [feat/issue-33-js-render-detection] JS-render detection heuristic — 2026-03-21 [IN PROGRESS]
+
+**What was built:**
+- `src/lib/types.ts` — added `jsRendered: boolean` to `ScrapedSite`
+- `src/lib/scraper.ts` — detects JS-rendered sites before `noscript` strip using three signals: body text < 500 chars, presence of `div#root/app/__next/__nuxt`, or `<noscript>` containing "javascript"; sets `jsRendered` on returned object
+- `src/app/api/clone/route.ts` — emits `warning` SSE events after each `scrapeSite()` call when `jsRendered` is true, informing the user that extraction may be incomplete
+- `src/lib/__tests__/scraper.test.ts` — 4 new test cases covering static (false), sparse body (true), `#root` div (true), and noscript JS message (true); 17/17 passing
+
+**Design decisions:**
+- Non-blocking: detection is informational only; pipeline continues regardless
+- `repeat(110)` in the static-page test (vs 100) — `'word '.repeat(100)` = 499 chars after trim, which would falsely trigger the heuristic; 110 = 549 chars, safely over threshold
+
+---
+
 ### [feat/issue-38-prompt-iteration] Model selector + pipeline hardening — 2026-03-21 [DONE — PR #44 → staging → main]
 
 **What was built:**

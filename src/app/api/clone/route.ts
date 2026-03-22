@@ -40,9 +40,15 @@ export async function GET(request: Request): Promise<Response> {
       try {
         send(controller, { type: 'status', message: 'Scraping design site...' })
         const designSite = await scrapeSite(designUrl)
+        if (designSite.jsRendered) {
+          send(controller, { type: 'warning', message: 'Design site appears to use client-side rendering — CSS extraction may be incomplete.' })
+        }
 
         send(controller, { type: 'status', message: 'Scraping content site...' })
         const contentSite = await scrapeSite(contentUrl)
+        if (contentSite.jsRendered) {
+          send(controller, { type: 'warning', message: 'Content site appears to use client-side rendering — content extraction may be incomplete.' })
+        }
 
         send(controller, { type: 'status', message: 'Discovering pages...' })
         const pages = discoverPages(contentSite, maxPages)
