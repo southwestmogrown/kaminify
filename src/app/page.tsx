@@ -69,6 +69,8 @@ export default function Home() {
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
+      let receivedDone = false
+      let completedPages = 0
 
       while (true) {
         const { done, value } = await reader.read()
@@ -86,18 +88,30 @@ export default function Home() {
             setEvents((prev) => [...prev, event])
 
             if (event.type === 'page_complete') {
+              completedPages += 1
               setPages((prev) => [...prev, event.page])
               setActiveSlug((prev) => prev ?? event.page.slug)
             }
-            if (event.type === 'done' || event.type === 'error') {
-              setIsRunning(false)
+            if (event.type === 'done') {
+              receivedDone = true
             }
           } catch {
             // malformed event — skip
           }
         }
       }
-      // Stream ended without a 'done' event (e.g. Vercel killed the function)
+
+      if (!receivedDone && !abortRef.current?.signal.aborted) {
+        setEvents(prev => [
+          ...prev,
+          {
+            type: 'warning' as const,
+            message: completedPages > 0
+              ? `Generation stopped — server timeout reached. ${completedPages} page(s) completed and ready to download.`
+              : 'Generation stopped before any pages completed. The server timed out — try fewer pages, or add your own API key for longer runs.',
+          },
+        ])
+      }
       setIsRunning(false)
     } catch (err: unknown) {
       // AbortError is intentional — don't surface as an error state
