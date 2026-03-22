@@ -32,6 +32,25 @@
 
 ---
 
+### [fix/css-extraction-limits] Raise CSS extraction limits for visual fidelity — 2026-03-22 [DONE]
+
+**Problem:** Cloned pages rendered with correct fonts and layout but no colors, backgrounds, or visual design. Root cause: two constants were too conservative for production-scale CSS.
+
+- `RAW_CSS_LIMIT = 2500` in `composer.ts` — after stripping `:root` blocks, only ~50 lines of CSS reached Claude on sites like Vercel or Stripe (charset decls, resets, basic typography). Brand colors, backgrounds, gradients, and button styles were buried deeper and never seen.
+- `PATTERN_CHAR_LIMIT = 1200` in `extractor.ts` — for Tailwind sites, the visual design lives in class names on elements, not in CSS rules. 1200 chars truncated complex components before all their utility classes were captured.
+
+**Fix:**
+- `RAW_CSS_LIMIT`: 2500 → 8000
+- `PATTERN_CHAR_LIMIT`: 1200 → 2500
+
+**Token cost:** ~+3000 input tokens per compose call (~$0.009/page at Sonnet pricing). Negligible.
+
+**Test update:** Composer truncation test updated (name, input length, assertion) from 2500 to 8000.
+
+**Not addressed here:** Hero selector mis-targeting on complex layouts; JS-only stylesheets (handled by browser scraper).
+
+---
+
 ### [feat/issue-47-per-page-orchestration] Per-page client orchestration — 2026-03-22 [DONE]
 
 **Problem:** Single `/api/clone` SSE route ran the full pipeline in one serverless call. On Vercel Hobby (60s hard limit), a 3-page Sonnet run (3 × ~15s compose + ~15s setup) regularly hit the ceiling.
