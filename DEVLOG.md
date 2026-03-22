@@ -24,6 +24,41 @@
 
 ## Entries
 
+### [feat/issue-47-per-page-orchestration] Per-page client orchestration — 2026-03-22 [DONE]
+
+**Problem:** Single `/api/clone` SSE route ran the full pipeline in one serverless call. On Vercel Hobby (60s hard limit), a 3-page Sonnet run (3 × ~15s compose + ~15s setup) regularly hit the ceiling.
+
+**Solution:** Split into two bounded endpoints. Client orchestrates the page loop.
+
+- **`GET /api/prepare`** — scrape both sites (with browser fallback), discover pages, extract design system + all page contents → returns JSON. Target: <30s worst case (two browser scrapes in series).
+- **`POST /api/compose`** — receives design system + one page content, runs one Claude call, streams SSE (`status` → `progress*` → `page_complete`). Target: <40s per page on Sonnet.
+
+**Vercel timeout note:** `maxDuration: 60` is the correct value for Hobby — not a mistake. The fix works because each individual call now fits within 60s. If the plan upgrades to Pro, increase compose to 300s at that time.
+
+**Client changes (`page.tsx` `startClone` only):**
+- Calls `/api/prepare` once (JSON); pushes synthetic status/warning events locally
+- Loops `/api/compose` once per page; streams each SSE response through `readComposeStream` helper
+- Emits one synthetic `done` event after all pages complete
+- `readComposeStream` filters per-compose `done` events + flushes residual buffer on stream close
+- AbortController shared across all fetches; Stop button aborts in-flight call and exits loop
+
+**Files added:**
+- `src/app/api/prepare/route.ts` + `__tests__/route.test.ts` (13 tests)
+- `src/app/api/compose/route.ts` + `__tests__/route.test.ts` (15 tests)
+
+**Files modified:**
+- `src/app/page.tsx` — `startClone` function replaced; all state, JSX, and other handlers untouched
+- `vercel.json` — `maxDuration: 60` added for both new routes
+- `DEVLOG.md`
+
+**Files intentionally untouched:**
+- `src/app/api/clone/route.ts` — preserved as rollback target; client no longer calls it
+- All lib files, all components
+
+**Test count:** 144 → 172 (+28)
+
+---
+
 ### [fix/browser-scraper-diagnostics] Fix Browserless v2 WS path — 2026-03-22 [DONE]
 
 **Root cause identified from Railway logs:**
