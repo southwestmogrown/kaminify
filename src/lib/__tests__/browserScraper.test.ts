@@ -130,6 +130,42 @@ describe('scrapeWithBrowser', () => {
     expect(result.html).toContain('<p>Content</p>')
   })
 
+  it('injects /chromium path when BROWSERLESS_WS_URL has no path', async () => {
+    process.env.BROWSERLESS_WS_URL = 'wss://test.example.com'
+    const connectMock = puppeteer.connect as ReturnType<typeof vi.fn>
+    connectMock.mockResolvedValueOnce({
+      newPage: vi.fn().mockResolvedValue({
+        setUserAgent: vi.fn().mockResolvedValue(undefined),
+        goto: vi.fn().mockResolvedValue(undefined),
+        content: vi.fn().mockResolvedValue('<html></html>'),
+        close: vi.fn().mockResolvedValue(undefined),
+      }),
+      disconnect: vi.fn().mockResolvedValue(undefined),
+    })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeResponse('')))
+    await scrapeWithBrowser('https://example.com')
+    const calledWith = connectMock.mock.calls[0][0] as { browserWSEndpoint: string }
+    expect(new URL(calledWith.browserWSEndpoint).pathname).toBe('/chromium')
+  })
+
+  it('does not double-append /chromium if path is already set', async () => {
+    process.env.BROWSERLESS_WS_URL = 'wss://test.example.com/chromium'
+    const connectMock = puppeteer.connect as ReturnType<typeof vi.fn>
+    connectMock.mockResolvedValueOnce({
+      newPage: vi.fn().mockResolvedValue({
+        setUserAgent: vi.fn().mockResolvedValue(undefined),
+        goto: vi.fn().mockResolvedValue(undefined),
+        content: vi.fn().mockResolvedValue('<html></html>'),
+        close: vi.fn().mockResolvedValue(undefined),
+      }),
+      disconnect: vi.fn().mockResolvedValue(undefined),
+    })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeResponse('')))
+    await scrapeWithBrowser('https://example.com')
+    const calledWith = connectMock.mock.calls[0][0] as { browserWSEndpoint: string }
+    expect(new URL(calledWith.browserWSEndpoint).pathname).toBe('/chromium')
+  })
+
   it('disconnects browser even when page.goto throws', async () => {
     const mockClose = vi.fn().mockResolvedValue(undefined)
     const mockDisconnect = vi.fn().mockResolvedValue(undefined)
@@ -144,7 +180,9 @@ describe('scrapeWithBrowser', () => {
       disconnect: mockDisconnect,
     })
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeResponse('')))
-    await expect(scrapeWithBrowser('https://example.com')).rejects.toThrow('Navigation timeout')
+    await expect(scrapeWithBrowser('https://example.com')).rejects.toThrow(
+      'Browser: failed to navigate to https://example.com — Navigation timeout'
+    )
     expect(mockClose).toHaveBeenCalled()
     expect(mockDisconnect).toHaveBeenCalled()
   })

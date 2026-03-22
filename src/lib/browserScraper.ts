@@ -11,12 +11,28 @@ export async function scrapeWithBrowser(url: string): Promise<ScrapedSite> {
     throw new Error('BROWSERLESS_WS_URL is not configured — browser rendering unavailable')
   }
 
-  const browser = await puppeteer.connect({ browserWSEndpoint: wsUrl })
-  const page = await browser.newPage()
+  const endpoint = new URL(wsUrl)
+  if (!endpoint.pathname || endpoint.pathname === '/') {
+    endpoint.pathname = '/chromium'
+  }
+  const browser = await puppeteer.connect({ browserWSEndpoint: endpoint.toString() })
+
+  let page: Awaited<ReturnType<typeof browser.newPage>>
+  try {
+    page = await browser.newPage()
+  } catch (err) {
+    await browser.disconnect()
+    throw new Error(`Browser: failed to open new page — ${err instanceof Error ? err.message : JSON.stringify(err)}`)
+  }
 
   try {
     await page.setUserAgent(USER_AGENT)
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15_000 })
+
+    try {
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15_000 })
+    } catch (err) {
+      throw new Error(`Browser: failed to navigate to ${url} — ${err instanceof Error ? err.message : JSON.stringify(err)}`)
+    }
 
     const html = await page.content()
     const $ = cheerio.load(html)
@@ -61,7 +77,11 @@ export async function scrapeWithBrowser(url: string): Promise<ScrapedSite> {
 
     return { url, html: $.html(), css, title, jsRendered: true }
   } finally {
-    await page.close()
-    await browser.disconnect()
+    await page.close().catch((err) =>
+      console.error('Browser: failed to close page —', err instanceof Error ? err.message : JSON.stringify(err))
+    )
+    await browser.disconnect().catch((err) =>
+      console.error('Browser: failed to disconnect —', err instanceof Error ? err.message : JSON.stringify(err))
+    )
   }
 }
