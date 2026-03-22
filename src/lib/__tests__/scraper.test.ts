@@ -209,7 +209,8 @@ describe('scrapeSite', () => {
     expect(result.html).not.toContain('requestAnimationFrame')
   })
 
-  it('triggers renderSite when static content is thin', async () => {
+  it('triggers renderSite when static content is thin and API key is set', async () => {
+    vi.stubEnv('BROWSERLESS_API_KEY', 'test-key')
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
       makeResponse('<html><head><title>Test</title></head><body><p>Hi</p></body></html>')
     ))
@@ -217,6 +218,15 @@ describe('scrapeSite', () => {
     const result = await scrapeSite('https://example.com')
     expect(mockRenderSite).toHaveBeenCalledWith('https://example.com')
     expect(result.html).toContain('<h1>Rich</h1>')
+  })
+
+  it('skips renderSite when BROWSERLESS_API_KEY is not set even if content is thin', async () => {
+    delete process.env.BROWSERLESS_API_KEY
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      makeResponse('<html><head><title>Test</title></head><body><p>Hi</p></body></html>')
+    ))
+    await scrapeSite('https://example.com')
+    expect(mockRenderSite).not.toHaveBeenCalled()
   })
 
   it('skips renderSite when static content is rich', async () => {

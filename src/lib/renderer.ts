@@ -1,30 +1,19 @@
-import puppeteer from 'puppeteer-core'
-import chromium from '@sparticuz/chromium-min'
-
-const USER_AGENT =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-
-async function getExecutablePath(): Promise<string> {
-  if (process.env.CHROMIUM_EXECUTABLE_PATH) {
-    return process.env.CHROMIUM_EXECUTABLE_PATH
-  }
-  return chromium.executablePath(process.env.CHROMIUM_REMOTE_EXEC_PATH ?? '')
-}
-
 export async function renderSite(url: string): Promise<string> {
-  const executablePath = await getExecutablePath()
-  const browser = await puppeteer.launch({
-    args: chromium.args,
-    defaultViewport: chromium.defaultViewport,
-    executablePath,
-    headless: true,
+  const apiKey = process.env.BROWSERLESS_API_KEY
+  if (!apiKey) throw new Error('BROWSERLESS_API_KEY is not configured')
+
+  const base =
+    process.env.BROWSERLESS_BASE_URL ?? 'https://production-sfo.browserless.io'
+
+  const response = await fetch(`${base}/content?token=${apiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url, waitForTimeout: 3000 }),
   })
-  try {
-    const page = await browser.newPage()
-    await page.setUserAgent(USER_AGENT)
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 25_000 })
-    return await page.content()
-  } finally {
-    await browser.close()
+
+  if (!response.ok) {
+    throw new Error(`Browserless error: ${response.status} ${response.statusText}`)
   }
+
+  return response.text()
 }

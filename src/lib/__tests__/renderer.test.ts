@@ -1,100 +1,68 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-
-const mockContent = vi.fn()
-const mockGoto = vi.fn()
-const mockSetUserAgent = vi.fn()
-const mockNewPage = vi.fn()
-const mockClose = vi.fn()
-
-vi.mock('puppeteer-core', () => {
-  return {
-    default: {
-      launch: vi.fn(),
-    },
-  }
-})
-
-vi.mock('@sparticuz/chromium-min', () => {
-  return {
-    default: {
-      args: ['--no-sandbox'],
-      defaultViewport: { width: 1280, height: 720 },
-      executablePath: vi.fn().mockResolvedValue('/fake/chromium'),
-    },
-  }
-})
-
-import puppeteer from 'puppeteer-core'
-import chromium from '@sparticuz/chromium-min'
 import { renderSite } from '../renderer'
 
-const mockLaunch = puppeteer.launch as ReturnType<typeof vi.fn>
-const mockExecutablePath = chromium.executablePath as ReturnType<typeof vi.fn>
-
-function setupBrowser({
-  gotoImpl,
-}: {
-  gotoImpl?: () => Promise<unknown>
-} = {}) {
-  mockContent.mockResolvedValue('<html>rendered</html>')
-  mockGoto.mockImplementation(gotoImpl ?? (() => Promise.resolve(null)))
-  mockSetUserAgent.mockResolvedValue(undefined)
-  mockNewPage.mockResolvedValue({
-    setUserAgent: mockSetUserAgent,
-    goto: mockGoto,
-    content: mockContent,
-  })
-  mockClose.mockResolvedValue(undefined)
-  mockLaunch.mockResolvedValue({
-    newPage: mockNewPage,
-    close: mockClose,
-  })
+function makeResponse(body: string, ok = true, status = 200): Response {
+  return {
+    ok,
+    status,
+    statusText: ok ? 'OK' : 'Error',
+    text: () => Promise.resolve(body),
+  } as unknown as Response
 }
 
 beforeEach(() => {
-  vi.clearAllMocks()
-  mockExecutablePath.mockResolvedValue('/fake/chromium')
+  vi.unstubAllEnvs()
+  vi.unstubAllGlobals()
 })
 
 afterEach(() => {
   vi.unstubAllEnvs()
+  vi.unstubAllGlobals()
 })
 
 describe('renderSite', () => {
-  it('happy path — returns string from page.content()', async () => {
-    setupBrowser()
+  it('returns rendered HTML from Browserless', async () => {
+    vi.stubEnv('BROWSERLESS_API_KEY', 'test-key')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeResponse('<html>rendered</html>')))
     const result = await renderSite('https://example.com')
     expect(result).toBe('<html>rendered</html>')
   })
 
-  it('browser.close() is called even when page.goto throws', async () => {
-    setupBrowser({ gotoImpl: () => Promise.reject(new Error('network error')) })
-    await expect(renderSite('https://example.com')).rejects.toThrow('network error')
-    expect(mockClose).toHaveBeenCalledOnce()
+  it('throws when BROWSERLESS_API_KEY is not set', async () => {
+    delete process.env.BROWSERLESS_API_KEY
+    await expect(renderSite('https://example.com')).rejects.toThrow('BROWSERLESS_API_KEY is not configured')
   })
 
-  it('uses CHROMIUM_EXECUTABLE_PATH when set', async () => {
-    vi.stubEnv('CHROMIUM_EXECUTABLE_PATH', '/fake/path')
-    setupBrowser()
-    await renderSite('https://example.com')
-    expect(mockExecutablePath).not.toHaveBeenCalled()
-    expect(mockLaunch).toHaveBeenCalledWith(
-      expect.objectContaining({ executablePath: '/fake/path' })
+  it('throws on non-200 response', async () => {
+    vi.stubEnv('BROWSERLESS_API_KEY', 'test-key')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeResponse('', false, 429)))
+    await expect(renderSite('https://example.com')).rejects.toThrow('Browserless error: 429')
+  })
+
+  it('POSTs the URL to the Browserless /content endpoint', async () => {
+    vi.stubEnv('BROWSERLESS_API_KEY', 'my-key')
+    const mockFetch = vi.fn().mockResolvedValue(makeResponse('<html/>'))
+    vi.stubGlobal('fetch', mockFetch)
+    await renderSite('https://target.com')
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/content?token=my-key'),
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"url":"https://target.com"'),
+      })
     )
   })
 
-  it('falls back to chromium.executablePath() when CHROMIUM_EXECUTABLE_PATH is not set', async () => {
-    vi.stubEnv('CHROMIUM_EXECUTABLE_PATH', '')
-    setupBrowser()
-    // Force env var to be absent by deleting it after stub
-    delete process.env.CHROMIUM_EXECUTABLE_PATH
+  it('uses BROWSERLESS_BASE_URL when set', async () => {
+    vi.stubEnv('BROWSERLESS_API_KEY', 'key')
+    vi.stubEnv('BROWSERLESS_BASE_URL', 'https://production-lon.browserless.io')
+    const mockFetch = vi.fn().mockResolvedValue(makeResponse('<html/>'))
+    vi.stubGlobal('fetch', mockFetch)
     await renderSite('https://example.com')
-    expect(mockExecutablePath).toHaveBeenCalledOnce()
-  })
-
-  it('propagates error from page.goto', async () => {
-    setupBrowser({ gotoImpl: () => Promise.reject(new Error('timeout')) })
-    await expect(renderSite('https://example.com')).rejects.toThrow('timeout')
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('production-lon.browserless.io'),
+      expect.anything()
+    )
   })
 })

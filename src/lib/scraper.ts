@@ -96,14 +96,14 @@ export async function scrapeSite(url: string): Promise<ScrapedSite> {
     title,
   }
 
-  if (isContentThin(result.html)) {
+  if (process.env.BROWSERLESS_API_KEY && isContentThin(result.html)) {
     try {
       const renderedHtml = await renderSite(url)
       const $r = cheerio.load(renderedHtml)
       $r('script, noscript').remove()
       result.html = $r.html()
     } catch {
-      // headless failed — return static result as-is
+      // render failed — return static result as-is
     }
   }
 
