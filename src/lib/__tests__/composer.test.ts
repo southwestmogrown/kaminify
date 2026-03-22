@@ -59,21 +59,21 @@ afterEach(() => {
 describe('composePage', () => {
   it('returns a string starting with <!DOCTYPE html>', async () => {
     mockResponse(validHtml)
-    const result = await composePage(makeDesign(), makeContent(), makePages(), 'test-key')
+    const result = await composePage(makeDesign(), makeContent(), makePages(), 'test-key', 'claude-haiku-4-5-20251001')
     expect(result).toMatch(/^<!DOCTYPE html>/i)
   })
 
   it('throws when response does not start with <!DOCTYPE html>', async () => {
     mockResponse('Here is your HTML: <!DOCTYPE html><html></html>')
     await expect(
-      composePage(makeDesign(), makeContent(), makePages(), 'test-key')
+      composePage(makeDesign(), makeContent(), makePages(), 'test-key', 'claude-haiku-4-5-20251001')
     ).rejects.toThrow('Claude did not return valid HTML')
   })
 
   it('throws when response is empty', async () => {
     mockCreate.mockResolvedValueOnce({ content: [{ type: 'tool_use', id: 'x', name: 'y', input: {} }] })
     await expect(
-      composePage(makeDesign(), makeContent(), makePages(), 'test-key')
+      composePage(makeDesign(), makeContent(), makePages(), 'test-key', 'claude-haiku-4-5-20251001')
     ).rejects.toThrow('Claude did not return valid HTML')
   })
 
@@ -112,35 +112,34 @@ describe('composePage', () => {
 
   it('accepts <!doctype html> (lowercase) as valid', async () => {
     mockResponse('<!doctype html><html></html>')
-    const result = await composePage(makeDesign(), makeContent(), makePages(), 'test-key')
+    const result = await composePage(makeDesign(), makeContent(), makePages(), 'test-key', 'claude-haiku-4-5-20251001')
     expect(result).toMatch(/^<!doctype html>/i)
   })
 
   it('strips ```html code fences and returns valid HTML', async () => {
     mockResponse('```html\n' + validHtml + '\n```')
-    const result = await composePage(makeDesign(), makeContent(), makePages(), 'test-key')
+    const result = await composePage(makeDesign(), makeContent(), makePages(), 'test-key', 'claude-haiku-4-5-20251001')
     expect(result).toMatch(/^<!DOCTYPE html>/i)
   })
 
   it('strips plain ``` code fences and returns valid HTML', async () => {
     mockResponse('```\n' + validHtml + '\n```')
-    const result = await composePage(makeDesign(), makeContent(), makePages(), 'test-key')
+    const result = await composePage(makeDesign(), makeContent(), makePages(), 'test-key', 'claude-haiku-4-5-20251001')
     expect(result).toMatch(/^<!DOCTYPE html>/i)
   })
 
-  it('uses COMPOSER_MODEL env var when set', async () => {
-    vi.stubEnv('COMPOSER_MODEL', 'claude-haiku-4-5-20251001')
+  it('passes the model parameter to the API call', async () => {
     mockResponse(validHtml)
-    await composePage(makeDesign(), makeContent(), [], 'key')
+    await composePage(makeDesign(), makeContent(), [], 'key', 'claude-opus-4-6')
     expect(mockCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ model: 'claude-haiku-4-5-20251001' })
+      expect.objectContaining({ model: 'claude-opus-4-6' })
     )
   })
 
   it('uses COMPOSER_MAX_TOKENS env var when set', async () => {
     vi.stubEnv('COMPOSER_MAX_TOKENS', '2048')
     mockResponse(validHtml)
-    await composePage(makeDesign(), makeContent(), [], 'key')
+    await composePage(makeDesign(), makeContent(), [], 'key', 'claude-haiku-4-5-20251001')
     expect(mockCreate).toHaveBeenCalledWith(
       expect.objectContaining({ max_tokens: 2048 })
     )
@@ -152,7 +151,7 @@ describe('composePage', () => {
       stop_reason: 'max_tokens',
     })
     await expect(
-      composePage(makeDesign(), makeContent(), makePages(), 'test-key')
+      composePage(makeDesign(), makeContent(), makePages(), 'test-key', 'claude-haiku-4-5-20251001')
     ).rejects.toThrow('Output truncated')
   })
 })

@@ -17,7 +17,8 @@ export async function composePage(
   design: DesignSystem,
   content: PageContent,
   allPages: DiscoveredPage[],
-  apiKey: string
+  apiKey: string,
+  model: string
 ): Promise<string> {
   const client = new Anthropic({ apiKey })
 
@@ -47,7 +48,6 @@ export async function composePage(
     currentSlug: content.slug,
   })
 
-  const model = process.env.COMPOSER_MODEL ?? 'claude-sonnet-4-6'
   const maxTokens = (() => {
     const val = parseInt(process.env.COMPOSER_MAX_TOKENS ?? '8192', 10)
     return Number.isNaN(val) ? 8192 : val
@@ -67,9 +67,14 @@ export async function composePage(
   }
 
   const block = response.content[0]
-  const text = block?.type === 'text' ? block.text : ''
+  let text = (block?.type === 'text' ? block.text : '').trimStart()
 
-  if (!/^<!doctype html>/i.test(text.trimStart())) {
+  // Smaller models sometimes wrap output in markdown fences despite instructions
+  if (text.startsWith('```')) {
+    text = text.replace(/^```(?:html)?\s*\n?/, '').replace(/\n?```\s*$/, '').trimStart()
+  }
+
+  if (!/^<!doctype html>/i.test(text)) {
     throw new Error('Claude did not return valid HTML')
   }
 

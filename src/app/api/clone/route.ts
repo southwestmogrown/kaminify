@@ -6,6 +6,8 @@ import type { CloneEvent, ClonedPage } from '@/lib/types'
 
 const encoder = new TextEncoder()
 
+const BYOK_MODELS = ['claude-haiku-4-5-20251001', 'claude-sonnet-4-6', 'claude-opus-4-6']
+
 function send(controller: ReadableStreamDefaultController, event: CloneEvent) {
   controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
 }
@@ -19,12 +21,17 @@ export async function GET(request: Request): Promise<Response> {
     return new Response('Missing parameters', { status: 400 })
   }
 
-  const apiKey =
-    request.headers.get('x-api-key') ?? process.env.ANTHROPIC_API_KEY ?? ''
+  const byokKey = request.headers.get('x-api-key')
+  const apiKey = byokKey ?? process.env.ANTHROPIC_API_KEY ?? ''
 
   if (!apiKey) {
     return new Response('Unauthorized', { status: 401 })
   }
+
+  const requestedModel = searchParams.get('model') ?? ''
+  const model = byokKey
+    ? (BYOK_MODELS.includes(requestedModel) ? requestedModel : 'claude-sonnet-4-6')
+    : 'claude-haiku-4-5-20251001'
 
   const maxPages = parseInt(process.env.DEMO_PAGE_LIMIT ?? '6')
 
@@ -53,7 +60,7 @@ export async function GET(request: Request): Promise<Response> {
           }, 2000)
           let html: string
           try {
-            html = await composePage(designSystem, content, pages, apiKey)
+            html = await composePage(designSystem, content, pages, apiKey, model)
           } finally {
             clearInterval(tick)
           }
