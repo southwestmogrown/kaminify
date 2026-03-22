@@ -1,16 +1,8 @@
 import * as cheerio from 'cheerio'
 import type { ScrapedSite } from './types'
-import { renderSite } from './renderer'
 
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-
-function isContentThin(html: string): boolean {
-  const $ = cheerio.load(html)
-  const headings = $('h1, h2, h3, h4').length
-  const paragraphs = $('p').filter((_, el) => $(el).text().trim().length > 30).length
-  return headings < 2 && paragraphs < 2
-}
 
 export async function scrapeSite(url: string): Promise<ScrapedSite> {
   const controller = new AbortController()
@@ -77,35 +69,13 @@ export async function scrapeSite(url: string): Promise<ScrapedSite> {
 
   const css = [...inlineStyles, ...linkedCss].join('\n')
 
-  // Collect inline script content before stripping (animation/canvas patterns)
-  const scriptBlocks: string[] = []
-  $('script:not([src])').each((_, el) => {
-    const content = $(el).html()?.trim() ?? ''
-    if (content) scriptBlocks.push(content)
-  })
-  const scripts = scriptBlocks.join('\n/* --- */\n')
-
   // Strip scripts and noscript before returning HTML
   $('script, noscript').remove()
 
-  const result: ScrapedSite = {
+  return {
     url,
     html: $.html(),
     css,
-    scripts,
     title,
   }
-
-  if (process.env.BROWSERLESS_API_KEY && isContentThin(result.html)) {
-    try {
-      const renderedHtml = await renderSite(url)
-      const $r = cheerio.load(renderedHtml)
-      $r('script, noscript').remove()
-      result.html = $r.html()
-    } catch {
-      // render failed — return static result as-is
-    }
-  }
-
-  return result
 }

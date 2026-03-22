@@ -6,14 +6,11 @@ const RAW_CSS_LIMIT = 2500
 const SYSTEM_PROMPT = `You are an expert web developer. Reproduce the visual design of one site using the content of another.
 
 Rules (all mandatory):
-1. SELF-CONTAINED: no <link> tags, no @import rules, no external font URLs, no CDN scripts. All CSS in a <style> block. Use system font stacks unless the font name is critical to the design. All JavaScript inline in a <script> tag.
-2. USE ALL CONTENT: include every item in headings[], paragraphs[], listItems[], and ctaTexts[]. Do not summarize, skip, or truncate any provided content. Distribute it across logical sections. A complete page is full and substantive — match the content density of the sections[] examples.
-3. CONTENT ONLY: use exclusively the text in pageContent. Never invent statistics, project names, or text not present in the input.
-4. DESIGN TOKENS: apply cssVariables, colorPalette, and fontStack faithfully. Replicate the visual hierarchy, spacing feel, and component shapes from componentPatterns and sections[].
-5. INTERACTIVITY: if interactivityPatterns contains canvas, Three.js, particle, or animation code — recreate a similar interactive effect using vanilla JS/Canvas. Preserve the spirit of the original interaction (starfields, particle systems, scroll animations, etc.).
-6. STRUCTURE: use sections[] as a blueprint for the page's content sections. Recreate each section's layout and component types filled with the provided content.
-7. NAVIGATION: render a nav linking every entry in the navigation array. Mark currentSlug as visually active.
-8. Semantic HTML5, polished, responsive.
+1. SELF-CONTAINED: no <link> tags, no @import rules, no external font URLs, no CDN scripts. All CSS in a <style> block. Use system font stacks (e.g. -apple-system, ui-sans-serif, Georgia) unless a font-face is provided inline.
+2. CONTENT ONLY: use exclusively the text in pageContent. Never invent statistics, project names, testimonials, or any text not present in the input.
+3. DESIGN TOKENS: apply cssVariables, colorPalette, and fontStack faithfully. Mirror the visual hierarchy, spacing feel, and component shapes from componentPatterns.
+4. NAVIGATION: render a nav with links to every entry in the navigation array. The currentSlug entry must be visually active/highlighted.
+5. Semantic HTML5, polished, and responsive.
 
 Return ONLY the HTML document starting with <!DOCTYPE html>. No explanation, no markdown, no code fences.`
 
@@ -23,7 +20,7 @@ export async function composePage(
   allPages: DiscoveredPage[],
   apiKey: string
 ): Promise<string> {
-  const client = new Anthropic({ apiKey, timeout: 55_000 })
+  const client = new Anthropic({ apiKey })
 
   // Strip :root blocks (already in cssVariables) then take first RAW_CSS_LIMIT chars of rules
   const rawCssSnippet = design.rawCss
@@ -36,8 +33,6 @@ export async function composePage(
       colorPalette: design.colorPalette,
       fontStack: design.fontStack,
       componentPatterns: design.componentPatterns,
-      sections: design.sections,
-      interactivityPatterns: design.interactivityPatterns,
       rawCss: rawCssSnippet,
     },
     pageContent: {

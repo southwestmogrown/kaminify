@@ -97,6 +97,8 @@ export default function Home() {
           }
         }
       }
+      // Stream ended without a 'done' event (e.g. Vercel killed the function)
+      setIsRunning(false)
     } catch (err: unknown) {
       // AbortError is intentional — don't surface as an error state
       if (!(err instanceof Error && err.name === 'AbortError')) {

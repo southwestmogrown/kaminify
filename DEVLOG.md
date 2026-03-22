@@ -44,6 +44,34 @@
 
 ---
 
+### [feat/puppeteer-headless-render] JS rendering + extraction hardening — 2026-03-21 [IN PROGRESS — PR #27]
+
+**What was built:**
+- `src/lib/renderer.ts` — `renderSite(url)` calls Browserless.io `/content` API (POST, `waitForTimeout: 3000`, 30s `AbortSignal`); throws fast on missing `BROWSERLESS_API_KEY`
+- `src/lib/scraper.ts` — `isContentThin()` heuristic (headings < 2 AND paragraphs > 30 chars < 2); calls `renderSite` only when `BROWSERLESS_API_KEY` is set and content is thin; captures inline `<script>` blocks into `scripts` field before stripping
+- `src/lib/extractor.ts` — `extractCssVariables()` (`:root {}` blocks as highest-signal design tokens); `extractSections()` (up to 5 `<section>/<article>` blocks, capped 1000 chars each, excludes nav/header/footer); `extractInteractivity()` (filters script blocks for canvas/Three.js/GSAP/animation patterns)
+- `src/lib/composer.ts` — 8-rule system prompt (SELF-CONTAINED, USE ALL CONTENT, CONTENT ONLY, DESIGN TOKENS, INTERACTIVITY, STRUCTURE, NAVIGATION, Semantic HTML5); `RAW_CSS_LIMIT` reduced to 2500; `cssVariables`/`sections`/`interactivityPatterns` added to prompt; external fonts banned; Anthropic client timeout set to 55s
+- `src/lib/types.ts` — `scripts: string` on `ScrapedSite`; `cssVariables`/`sections`/`interactivityPatterns` on `DesignSystem`; `progress` event added to `CloneEvent`
+- `src/app/api/clone/route.ts` — progress ticker: `setInterval` every 2s during each `composePage` call, sends `{ type: 'progress', message: 'Generating X... Ns' }`; `clearInterval` in `finally`
+- `src/components/ProgressFeed.tsx` — progress events update the active step label in-place (no list flooding); spinner enlarged to `w-4 h-4`, higher opacity; active step renders in `text-primary` vs muted for completed steps
+- `src/app/page.tsx` — red **Stop** button in Pipeline header while running; calls `abortRef.current?.abort()` to halt fetch and stop token burn immediately
+- `vercel.json` — `maxDuration: 60` for clone route
+- 138 tests passing
+
+**Decisions:**
+- Browserless.io over Puppeteer/playwright — no binary bundling, no Vercel size limit risk, SLA-backed, single env var; `puppeteer-core` + `@sparticuz/chromium-min` removed after discovering `CHROMIUM_REMOTE_EXEC_PATH` requirement made Vercel deployment non-trivial
+- `isContentThin` uses `&&` not `||` — a page can have no headings but rich `<p>` content (or vice versa); both thin together signals JS-rendered
+- 55s Anthropic timeout — Anthropic SDK defaults to 600s; a stalled Claude call was causing 5+ minute silent hangs; 55s leaves headroom within Vercel's 60s `maxDuration`
+- 30s AbortSignal on Browserless fetch — same reason; uncapped fetch would hang the pipeline indefinitely if Browserless is slow
+- Progress ticker over token streaming — avoids refactoring composer tests and the Anthropic mock; elapsed-time ticker gives equivalent UX signal (proof of life) with no added complexity
+- `BROWSERLESS_API_KEY` guard in scraper — degrades gracefully to static HTML when key absent; static sites with rich content skip Browserless entirely
+
+**Gotchas:**
+- `vi.mock` factory cannot reference a `const` declared in the same file — must use `vi.hoisted(() => ({ ... }))` so the mock factory can reference the variable after hoisting
+- Module-level `const` reading `process.env` is evaluated once at import time — `vi.stubEnv` won't affect it; env reads must be inside the exported function
+
+---
+
 ## Bug Fixes
 
 ### [BUG] Vercel 404 on favicon and index — 2026-03-21 [FIXED]
