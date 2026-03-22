@@ -87,4 +87,10 @@ SSE events: `CloneEvent` with `type: "status" | "page_complete" | "error" | "don
 ANTHROPIC_API_KEY=   # server key for demo runs
 DEMO_RUN_LIMIT=3
 DEMO_PAGE_LIMIT=3
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=   # from Clerk dashboard
+CLERK_SECRET_KEY=                    # from Clerk dashboard
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/
+NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/
 ```

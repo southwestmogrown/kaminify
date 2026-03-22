@@ -48,4 +48,20 @@ describe('DemoBanner', () => {
     await userEvent.click(screen.getByRole('button', { name: /Add your API key to continue/ }))
     expect(handler).toHaveBeenCalledOnce()
   })
+
+  it('isSignedIn=true, hasApiKey=true renders "Signed in · API key active — unlimited runs"', () => {
+    render(<DemoBanner runsUsed={0} runLimit={3} hasApiKey={true} isSignedIn={true} onOpenApiKeyInput={() => {}} />)
+    expect(screen.getByText(/Signed in · API key active — unlimited runs/)).toBeInTheDocument()
+  })
+
+  it('isSignedIn=true, hasApiKey=false renders "Add your API key to run →" and no run counter', () => {
+    render(<DemoBanner runsUsed={1} runLimit={3} hasApiKey={false} isSignedIn={true} onOpenApiKeyInput={() => {}} />)
+    expect(screen.getByRole('button', { name: /Add your API key to run →/ })).toBeInTheDocument()
+    expect(screen.queryByText(/of 3 free runs used/)).not.toBeInTheDocument()
+  })
+
+  it('isSignedIn=false falls through to existing unauthenticated behavior', () => {
+    render(<DemoBanner runsUsed={1} runLimit={3} hasApiKey={false} isSignedIn={false} onOpenApiKeyInput={() => {}} />)
+    expect(screen.getByText('1 of 3 free runs used · No account required')).toBeInTheDocument()
+  })
 })
