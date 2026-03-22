@@ -67,6 +67,7 @@ export interface CloneResult {
 // SSE event shapes sent from /api/clone — discriminated union for exhaustive narrowing
 export type CloneEvent =
   | { type: 'status'; message: string }
+  | { type: 'progress'; message: string }   // live update while Claude is generating (replaces current step display)
   | { type: 'page_complete'; page: ClonedPage }
   | { type: 'error'; error: string }
   | { type: 'done' }

@@ -251,10 +251,19 @@ export default function Home() {
             style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-elevated)' }}
           >
             <div
-              className="px-4 py-2 text-xs font-medium border-b"
+              className="px-4 py-2 text-xs font-medium border-b flex items-center justify-between"
               style={{ color: 'var(--color-text-muted)', borderColor: 'var(--color-border)' }}
             >
-              Pipeline
+              <span>Pipeline</span>
+              {isRunning && (
+                <button
+                  onClick={() => { abortRef.current?.abort(); setIsRunning(false) }}
+                  className="px-2 py-0.5 rounded text-xs font-medium"
+                  style={{ backgroundColor: 'var(--color-error)', color: '#fff' }}
+                >
+                  Stop
+                </button>
+              )}
             </div>
             <ProgressFeed events={events} isRunning={isRunning} />
           </aside>
