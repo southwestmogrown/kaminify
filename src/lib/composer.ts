@@ -47,9 +47,15 @@ export async function composePage(
     currentSlug: content.slug,
   })
 
+  const model = process.env.COMPOSER_MODEL ?? 'claude-sonnet-4-6'
+  const maxTokens = (() => {
+    const val = parseInt(process.env.COMPOSER_MAX_TOKENS ?? '8192', 10)
+    return Number.isNaN(val) ? 8192 : val
+  })()
+
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 8192,
+    model,
+    max_tokens: maxTokens,
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: userMessage }],
   })

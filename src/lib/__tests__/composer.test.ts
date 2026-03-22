@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { DesignSystem, DiscoveredPage, PageContent } from '../types'
 
 // Mock the Anthropic SDK before importing composer
@@ -51,6 +51,10 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
+afterEach(() => {
+  vi.unstubAllEnvs()
+})
+
 describe('composePage', () => {
   it('returns a string starting with <!DOCTYPE html>', async () => {
     mockResponse(validHtml)
@@ -72,14 +76,14 @@ describe('composePage', () => {
     ).rejects.toThrow('Claude did not return valid HTML')
   })
 
-  it('truncates rawCss to 8000 characters', async () => {
+  it('truncates rawCss to 2500 characters', async () => {
     mockResponse(validHtml)
     const longCss = 'a'.repeat(12000)
     await composePage(makeDesign(longCss), makeContent(), makePages(), 'test-key')
 
     const callArg = mockCreate.mock.calls[0][0]
     const userContent = JSON.parse(callArg.messages[0].content)
-    expect(userContent.designSystem.rawCss.length).toBeLessThanOrEqual(8000)
+    expect(userContent.designSystem.rawCss.length).toBeLessThanOrEqual(2500)
   })
 
   it('includes all page slugs in the navigation array', async () => {
@@ -109,5 +113,23 @@ describe('composePage', () => {
     mockResponse('<!doctype html><html></html>')
     const result = await composePage(makeDesign(), makeContent(), makePages(), 'test-key')
     expect(result).toMatch(/^<!doctype html>/i)
+  })
+
+  it('uses COMPOSER_MODEL env var when set', async () => {
+    vi.stubEnv('COMPOSER_MODEL', 'claude-haiku-4-5-20251001')
+    mockResponse(validHtml)
+    await composePage(makeDesign(), makeContent(), [], 'key')
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'claude-haiku-4-5-20251001' })
+    )
+  })
+
+  it('uses COMPOSER_MAX_TOKENS env var when set', async () => {
+    vi.stubEnv('COMPOSER_MAX_TOKENS', '2048')
+    mockResponse(validHtml)
+    await composePage(makeDesign(), makeContent(), [], 'key')
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ max_tokens: 2048 })
+    )
   })
 })
