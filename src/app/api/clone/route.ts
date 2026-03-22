@@ -85,7 +85,8 @@ export async function GET(request: Request): Promise<Response> {
 
         send(controller, { type: 'done' })
       } catch (err) {
-        send(controller, { type: 'error', error: err instanceof Error ? err.message : String(err) })
+        const message = err instanceof Error ? err.message : typeof err === 'object' ? JSON.stringify(err) : String(err)
+        send(controller, { type: 'error', error: message })
       } finally {
         controller.close()
       }

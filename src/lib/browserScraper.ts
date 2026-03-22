@@ -21,7 +21,7 @@ export async function scrapeWithBrowser(url: string): Promise<ScrapedSite> {
 
   try {
     await page.setUserAgent(USER_AGENT)
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 15_000 })
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15_000 })
 
     const html = await page.content()
     const $ = cheerio.load(html)
