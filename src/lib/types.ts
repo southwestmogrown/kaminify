@@ -12,6 +12,7 @@ export interface ScrapedSite {
   html: string     // full raw HTML (scripts stripped)
   css: string      // all inline and linked CSS concatenated
   title: string
+  jsRendered: boolean  // true if site appears to require JS for content
 }
 
 // Extracted design system from the design source
