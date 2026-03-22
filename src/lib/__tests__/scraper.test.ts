@@ -203,4 +203,43 @@ describe('scrapeSite', () => {
     const result = await scrapeSite('https://example.com')
     expect(result.html).not.toContain('requestAnimationFrame')
   })
+
+  it('sets jsRendered to false for a content-rich static page', async () => {
+    const richHtml = `<html><head><title>Static</title></head><body>
+      <p>${'word '.repeat(110)}</p>
+    </body></html>`
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeResponse(richHtml)))
+    const result = await scrapeSite('https://example.com')
+    expect(result.jsRendered).toBe(false)
+  })
+
+  it('sets jsRendered to true when body text is under 500 chars', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        makeResponse('<html><head><title>SPA</title></head><body><div id="root"></div></body></html>')
+      )
+    )
+    const result = await scrapeSite('https://example.com')
+    expect(result.jsRendered).toBe(true)
+  })
+
+  it('sets jsRendered to true when #root div is present even with some text', async () => {
+    const html = `<html><head><title>SPA</title></head><body>
+      <div id="root"><p>${'word '.repeat(100)}</p></div>
+    </body></html>`
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeResponse(html)))
+    const result = await scrapeSite('https://example.com')
+    expect(result.jsRendered).toBe(true)
+  })
+
+  it('sets jsRendered to true when noscript contains javascript message', async () => {
+    const html = `<html><head><title>App</title></head><body>
+      <noscript>You need to enable JavaScript to run this app.</noscript>
+      ${'<p>word </p>'.repeat(40)}
+    </body></html>`
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeResponse(html)))
+    const result = await scrapeSite('https://example.com')
+    expect(result.jsRendered).toBe(true)
+  })
 })

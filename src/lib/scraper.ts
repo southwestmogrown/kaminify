@@ -69,6 +69,13 @@ export async function scrapeSite(url: string): Promise<ScrapedSite> {
 
   const css = [...inlineStyles, ...linkedCss].join('\n')
 
+  // Detect JS-rendered sites before stripping noscript tags
+  const bodyText = $('body').text().trim().replace(/\s+/g, ' ')
+  const jsRendered =
+    bodyText.length < 500 ||
+    $('div#root, div#app, div#__next, div#__nuxt').length > 0 ||
+    $('noscript').text().toLowerCase().includes('javascript')
+
   // Strip scripts and noscript before returning HTML
   $('script, noscript').remove()
 
@@ -77,5 +84,6 @@ export async function scrapeSite(url: string): Promise<ScrapedSite> {
     html: $.html(),
     css,
     title,
+    jsRendered,
   }
 }

@@ -24,6 +24,34 @@
 
 ## Entries
 
+### [feat/issue-33-js-render-detection] JS-render detection heuristic — 2026-03-21 [IN PROGRESS — PR #53 → staging]
+
+**What was built:**
+- `src/lib/types.ts` — added `jsRendered: boolean` to `ScrapedSite`
+- `src/lib/scraper.ts` — detects JS-rendered sites before `noscript` strip using three signals: body text < 500 chars, presence of `div#root/app/__next/__nuxt`, or `<noscript>` containing "javascript"; sets `jsRendered` on returned object
+- `src/app/api/clone/route.ts` — emits `warning` SSE events after each `scrapeSite()` call when `jsRendered` is true
+- `src/lib/__tests__/scraper.test.ts` — 4 new test cases; 17/17 passing
+- Fixed missing `jsRendered` in `ScrapedSite` mocks across `route.test.ts`, `discover.test.ts`, `extractor.test.ts`, `PageTabBar.test.tsx`
+
+**Design decisions:**
+- Non-blocking: detection is informational only; pipeline continues regardless
+
+---
+
+### [feat/issue-36-mobile-preview-toggle] Mobile preview toggle — 2026-03-21 [IN PROGRESS]
+
+**What was built:**
+- `src/app/page.tsx` — added `mobilePreview: boolean` state (default `false`); wired to `PageTabBar` and `PagePreview`; state persists across page tab changes
+- `src/components/PageTabBar.tsx` — added Desktop/Mobile toggle icon-buttons on the right side of the tab bar; monitor + smartphone SVG icons; active mode gets accent color + dim background; `aria-label` and `aria-pressed` for accessibility; tabs inner div gets `flex-1` + `overflow-x-auto` so tabs scroll independently from toggle
+- `src/components/PagePreview.tsx` — added `mobilePreview?: boolean` prop; when true, wraps iframe in centering container with `--color-bg-base` background and renders iframe at fixed 375px width with subtle `box-shadow` ring; desktop path unchanged
+
+**Design decisions:**
+- State persists across page tab changes — if you're checking mobile rendering, you want all pages in mobile mode
+- No device chrome frame — clean dark background with a subtle outline shadow is sufficient for the portfolio aesthetic
+- Toggle buttons guard no-op clicks (clicking active mode does nothing)
+
+---
+
 ### [feat/issue-38-prompt-iteration] Model selector + pipeline hardening — 2026-03-21 [DONE — PR #44 → staging → main]
 
 **What was built:**

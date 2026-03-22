@@ -8,9 +8,10 @@ const GeneratingAnimation = dynamic(() => import('./GeneratingAnimation'), { ssr
 interface PagePreviewProps {
   page: ClonedPage | null
   isLoading?: boolean
+  mobilePreview?: boolean
 }
 
-export default function PagePreview({ page, isLoading }: PagePreviewProps) {
+export default function PagePreview({ page, isLoading, mobilePreview }: PagePreviewProps) {
   const blobUrlRef = useRef<string | null>(null)
   const [iframeSrc, setIframeSrc] = useState<string | null>(null)
 
@@ -48,6 +49,28 @@ export default function PagePreview({ page, isLoading }: PagePreviewProps) {
 
   if (!iframeSrc) {
     return null
+  }
+
+  if (mobilePreview) {
+    return (
+      <div
+        className="flex flex-1 justify-center overflow-auto"
+        style={{ backgroundColor: 'var(--color-bg-base)', minHeight: 0 }}
+      >
+        <iframe
+          src={iframeSrc}
+          title={page.title}
+          sandbox="allow-scripts allow-same-origin"
+          style={{
+            width: 375,
+            flexShrink: 0,
+            border: 'none',
+            boxShadow: '0 0 0 1px rgba(255,255,255,0.08), 0 8px 32px rgba(0,0,0,0.4)',
+            alignSelf: 'stretch',
+          }}
+        />
+      </div>
+    )
   }
 
   return (
