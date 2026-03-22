@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { CloneEvent, ClonedPage } from '@/lib/types'
+import type { CloneEvent, ClonedPage, DiscoveredPage } from '@/lib/types'
 import { getDemoSession, incrementDemoRun, getByokSession, saveByokSession, clearByokSession } from '@/lib/demo'
 import UrlInputPanel from '@/components/UrlInputPanel'
 import ProgressFeed from '@/components/ProgressFeed'
@@ -55,75 +55,115 @@ export default function Home() {
     const headers: Record<string, string> = {}
     if (apiKey) headers['x-api-key'] = apiKey
 
-    const params = new URLSearchParams({ designUrl, contentUrl, model })
+    function pushEvent(event: CloneEvent) {
+      setEvents((prev) => [...prev, event])
+    }
 
-    try {
-      const res = await fetch(`/api/clone?${params}`, {
-        headers,
-        signal: controller.signal,
-      })
-
-      if (!res.ok || !res.body) {
-        setIsRunning(false)
-        return
-      }
-
-      const reader = res.body.getReader()
+    async function readComposeStream(body: ReadableStream<Uint8Array>): Promise<void> {
+      const reader = body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
-      let receivedDone = false
-      let receivedError = false
-      let completedPages = 0
-
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
-
         buffer += decoder.decode(value, { stream: true })
         const parts = buffer.split('\n\n')
         buffer = parts.pop() ?? ''
-
         for (const part of parts) {
           const line = part.trim()
           if (!line.startsWith('data: ')) continue
           try {
             const event: CloneEvent = JSON.parse(line.slice(6))
-            setEvents((prev) => [...prev, event])
-
+            if (event.type === 'done') continue
+            pushEvent(event)
             if (event.type === 'page_complete') {
-              completedPages += 1
               setPages((prev) => [...prev, event.page])
               setActiveSlug((prev) => prev ?? event.page.slug)
-            }
-            if (event.type === 'done') {
-              receivedDone = true
-            }
-            if (event.type === 'error') {
-              receivedError = true
             }
           } catch {
             // malformed event — skip
           }
         }
       }
+      // Flush any remaining buffer content not terminated by \n\n
+      const remaining = buffer.trim()
+      if (remaining.startsWith('data: ')) {
+        try {
+          const event: CloneEvent = JSON.parse(remaining.slice(6))
+          if (event.type !== 'done') {
+            pushEvent(event)
+            if (event.type === 'page_complete') {
+              setPages((prev) => [...prev, event.page])
+              setActiveSlug((prev) => prev ?? event.page.slug)
+            }
+          }
+        } catch {
+          // malformed — skip
+        }
+      }
+    }
 
-      if (!receivedDone && !receivedError && !abortRef.current?.signal.aborted) {
-        setEvents(prev => [
-          ...prev,
-          {
-            type: 'warning' as const,
-            message: completedPages > 0
-              ? `Generation stopped — server timeout reached. ${completedPages} page(s) completed and ready to download.`
-              : 'Generation stopped before any pages completed. The server timed out — try fewer pages, or add your own API key for longer runs.',
-          },
-        ])
+    try {
+      pushEvent({ type: 'status', message: 'Scraping and preparing...' })
+
+      const params = new URLSearchParams({ designUrl, contentUrl, model })
+      const prepRes = await fetch(`/api/prepare?${params}`, {
+        headers,
+        signal: controller.signal,
+      })
+
+      if (!prepRes.ok) {
+        const text = await prepRes.text()
+        pushEvent({ type: 'error', error: text || `Prepare failed (${prepRes.status})` })
+        return
       }
-      setIsRunning(false)
+
+      const prepData = await prepRes.json() as {
+        designSystem: unknown
+        pages: DiscoveredPage[]
+        pageContents: unknown[]
+        warnings: string[]
+        model: string
+      }
+      const { designSystem, pages, pageContents, warnings, model: resolvedModel } = prepData
+
+      for (const w of warnings) {
+        pushEvent({ type: 'warning', message: w })
+      }
+      pushEvent({ type: 'status', message: `Found ${pages.length} page(s)` })
+
+      for (let i = 0; i < pages.length; i++) {
+        if (controller.signal.aborted) break
+
+        const composeRes = await fetch('/api/compose', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...headers },
+          body: JSON.stringify({
+            designSystem,
+            pageContent: pageContents[i],
+            allPages: pages,
+            model: resolvedModel,
+          }),
+          signal: controller.signal,
+        })
+
+        if (!composeRes.ok || !composeRes.body) {
+          pushEvent({ type: 'error', error: `Failed to compose page ${i + 1} (${composeRes.status})` })
+          continue
+        }
+
+        await readComposeStream(composeRes.body)
+      }
+
+      if (!controller.signal.aborted) {
+        pushEvent({ type: 'done' })
+      }
     } catch (err: unknown) {
-      // AbortError is intentional — don't surface as an error state
       if (!(err instanceof Error && err.name === 'AbortError')) {
-        setIsRunning(false)
+        pushEvent({ type: 'error', error: err instanceof Error ? err.message : 'Unknown error' })
       }
+    } finally {
+      setIsRunning(false)
     }
   }
 
