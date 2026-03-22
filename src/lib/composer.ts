@@ -3,16 +3,15 @@ import type { DesignSystem, DiscoveredPage, PageContent } from './types'
 
 const RAW_CSS_LIMIT = 2500
 
-const SYSTEM_PROMPT = `You are an expert web developer. Reproduce the visual design of one site using the content of another.
+const SYSTEM_PROMPT = `You are an expert web developer. Given a design system and page content, build a polished, complete, self-contained HTML page.
 
-Rules (all mandatory):
-1. SELF-CONTAINED: no <link> tags, no @import rules, no external font URLs, no CDN scripts. All CSS in a <style> block. Use system font stacks (e.g. -apple-system, ui-sans-serif, Georgia) unless a font-face is provided inline.
-2. CONTENT ONLY: use exclusively the text in pageContent. Never invent statistics, project names, testimonials, or any text not present in the input.
-3. DESIGN TOKENS: apply cssVariables, colorPalette, and fontStack faithfully. Mirror the visual hierarchy, spacing feel, and component shapes from componentPatterns.
-4. NAVIGATION: render a nav with links to every entry in the navigation array. The currentSlug entry must be visually active/highlighted.
-5. Semantic HTML5, polished, and responsive.
+Hard constraints:
+- Output ONLY the HTML document starting with <!DOCTYPE html>. No markdown, no code fences, no explanation.
+- Fully self-contained: all CSS in a <style> block, no external stylesheets, no CDN links, no @import. Use system font stacks unless a web font is critical to the design.
+- Use only the text provided in pageContent — do not invent copy, statistics, or names.
+- Include navigation linking all pages in the navigation array; mark currentSlug as active.
 
-Return ONLY the HTML document starting with <!DOCTYPE html>. No explanation, no markdown, no code fences.`
+Apply the design tokens, color palette, component patterns, and layout feel from the design system faithfully. Make it responsive and production-quality.`
 
 export async function composePage(
   design: DesignSystem,

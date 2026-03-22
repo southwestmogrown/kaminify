@@ -63,7 +63,7 @@ describe('extractDesignSystem', () => {
   })
 
   it('finds footer HTML via cheerio', () => {
-    const site = makeSite('<html><body><footer>© 2025</footer></body></html>')
+    const site = makeSite('<html><body><footer>© 2026</footer></body></html>')
     const ds = extractDesignSystem(site)
     expect(ds.componentPatterns.footer).toContain('<footer')
   })
