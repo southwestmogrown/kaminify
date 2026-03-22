@@ -3,7 +3,7 @@ import { discoverPages } from '../discover'
 import type { ScrapedSite } from '../types'
 
 function makeSite(html: string, url = 'https://example.com'): ScrapedSite {
-  return { url, html, css: '', scripts: '', title: '' }
+  return { url, html, css: '', title: '' }
 }
 
 describe('discoverPages', () => {

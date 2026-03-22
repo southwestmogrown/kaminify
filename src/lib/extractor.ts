@@ -6,10 +6,6 @@ import type { DesignSystem, DiscoveredPage, PageContent, ScrapedSite } from './t
 const CSS_VARIABLE_RE = /:root\s*\{([^}]*)\}/g
 const PATTERN_CHAR_LIMIT = 1200
 const COLOR_LIMIT = 20
-const SECTION_CHAR_LIMIT = 1000
-const MAX_SECTIONS = 5
-const INTERACTIVITY_CHAR_LIMIT = 4000
-const ANIMATION_RE = /canvas|getContext|requestAnimationFrame|THREE\.|WebGLRenderer|gsap|ScrollTrigger|anime\(|particle|Particle|\.animate\(|IntersectionObserver/
 
 const HEX_RE = /#([0-9a-fA-F]{3,8})\b/g
 const RGB_RE = /rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+[^)]*\)/g
@@ -92,27 +88,6 @@ function findComponent($: cheerio.CheerioAPI, selectors: string[]): string {
   return ''
 }
 
-const EXCLUDED_SECTION_TAGS = new Set(['nav', 'header', 'footer', 'head', 'script', 'style', 'noscript'])
-
-function extractSections($: cheerio.CheerioAPI): string[] {
-  const sections: string[] = []
-  $('section, article').each((_, el) => {
-    if (sections.length >= MAX_SECTIONS) return false
-    const tag = (el as unknown as { tagName?: string }).tagName?.toLowerCase() ?? ''
-    if (EXCLUDED_SECTION_TAGS.has(tag)) return
-    const html = $.html(el).slice(0, SECTION_CHAR_LIMIT)
-    if (html.trim()) sections.push(html)
-  })
-  return sections
-}
-
-function extractInteractivity(scripts: string): string {
-  if (!scripts) return ''
-  const blocks = scripts.split('/* --- */')
-  const animationBlocks = blocks.filter((b) => ANIMATION_RE.test(b))
-  return animationBlocks.join('\n').slice(0, INTERACTIVITY_CHAR_LIMIT)
-}
-
 export function extractDesignSystem(site: ScrapedSite): DesignSystem {
   const $ = cheerio.load(site.html)
 
@@ -159,8 +134,6 @@ export function extractDesignSystem(site: ScrapedSite): DesignSystem {
     spacing: extractSpacing(site.css),
     borderRadius: extractBorderRadius(site.css),
     componentPatterns: { nav, hero, footer, card, button },
-    sections: extractSections($),
-    interactivityPatterns: extractInteractivity(site.scripts),
     rawCss: site.css,
   }
 }
