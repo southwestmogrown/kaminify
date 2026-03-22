@@ -23,7 +23,7 @@ export async function composePage(
   allPages: DiscoveredPage[],
   apiKey: string
 ): Promise<string> {
-  const client = new Anthropic({ apiKey, timeout: 55_000 })
+  const client = new Anthropic({ apiKey, timeout: 40_000 })
 
   // Strip :root blocks (already in cssVariables) then take first RAW_CSS_LIMIT chars of rules
   const rawCssSnippet = design.rawCss
