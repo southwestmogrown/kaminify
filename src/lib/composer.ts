@@ -11,13 +11,14 @@ Hard constraints:
 - Use only the text provided in pageContent — do not invent copy, statistics, or names.
 - Include navigation linking all pages in the navigation array; mark currentSlug as active.
 
-Apply the design tokens, color palette, component patterns, and layout feel from the design system faithfully. Make it responsive and production-quality.`
+Apply the design tokens, color palette, component patterns, and layout feel from the design system faithfully. Make it responsive and production-quality. Write efficient, minimal CSS — avoid redundancy. The complete page must fit in a single response.`
 
 export async function composePage(
   design: DesignSystem,
   content: PageContent,
   allPages: DiscoveredPage[],
-  apiKey: string
+  apiKey: string,
+  model: string
 ): Promise<string> {
   const client = new Anthropic({ apiKey })
 
@@ -47,17 +48,33 @@ export async function composePage(
     currentSlug: content.slug,
   })
 
+  const maxTokens = (() => {
+    const val = parseInt(process.env.COMPOSER_MAX_TOKENS ?? '8192', 10)
+    return Number.isNaN(val) ? 8192 : val
+  })()
+
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 8192,
+    model,
+    max_tokens: maxTokens,
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: userMessage }],
   })
 
-  const block = response.content[0]
-  const text = block?.type === 'text' ? block.text : ''
+  if (response.stop_reason === 'max_tokens') {
+    throw new Error(
+      'Output truncated — page too complex for the current token limit. Increase COMPOSER_MAX_TOKENS or use a simpler source site.'
+    )
+  }
 
-  if (!/^<!doctype html>/i.test(text.trimStart())) {
+  const block = response.content[0]
+  let text = (block?.type === 'text' ? block.text : '').trimStart()
+
+  // Smaller models sometimes wrap output in markdown fences despite instructions
+  if (text.startsWith('```')) {
+    text = text.replace(/^```(?:html)?\s*\n?/, '').replace(/\n?```\s*$/, '').trimStart()
+  }
+
+  if (!/^<!doctype html>/i.test(text)) {
     throw new Error('Claude did not return valid HTML')
   }
 

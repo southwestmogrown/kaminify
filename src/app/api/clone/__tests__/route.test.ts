@@ -100,7 +100,7 @@ describe('GET /api/clone', () => {
     expect(res.status).toBe(200)
     await collectStream(res)
     expect(mockComposePage).toHaveBeenCalledWith(
-      expect.anything(), expect.anything(), expect.anything(), 'byok-key'
+      expect.anything(), expect.anything(), expect.anything(), 'byok-key', expect.any(String)
     )
   })
 
@@ -116,7 +116,7 @@ describe('GET /api/clone', () => {
     expect(res.status).toBe(200)
     await collectStream(res)
     expect(mockComposePage).toHaveBeenCalledWith(
-      expect.anything(), expect.anything(), expect.anything(), 'env-key'
+      expect.anything(), expect.anything(), expect.anything(), 'env-key', expect.any(String)
     )
   })
 
@@ -134,7 +134,7 @@ describe('GET /api/clone', () => {
     ))
     await collectStream(res)
     expect(mockComposePage).toHaveBeenCalledWith(
-      expect.anything(), expect.anything(), expect.anything(), 'byok-key'
+      expect.anything(), expect.anything(), expect.anything(), 'byok-key', expect.any(String)
     )
   })
 

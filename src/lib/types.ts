@@ -65,6 +65,7 @@ export interface CloneResult {
 export type CloneEvent =
   | { type: 'status'; message: string }
   | { type: 'progress'; message: string }   // live update while Claude is generating (replaces current step display)
+  | { type: 'warning'; message: string }
   | { type: 'page_complete'; page: ClonedPage }
   | { type: 'error'; error: string }
   | { type: 'done' }

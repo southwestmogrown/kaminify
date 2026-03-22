@@ -12,7 +12,7 @@ interface PagePreviewProps {
 
 export default function PagePreview({ page, isLoading }: PagePreviewProps) {
   const blobUrlRef = useRef<string | null>(null)
-  const [iframeSrc, setIframeSrc] = useState('')
+  const [iframeSrc, setIframeSrc] = useState<string | null>(null)
 
   useEffect(() => {
     if (blobUrlRef.current) {
@@ -24,7 +24,7 @@ export default function PagePreview({ page, isLoading }: PagePreviewProps) {
       blobUrlRef.current = URL.createObjectURL(blob)
       setIframeSrc(blobUrlRef.current)
     } else {
-      setIframeSrc('')
+      setIframeSrc(null)
     }
     return () => {
       if (blobUrlRef.current) {
@@ -44,6 +44,10 @@ export default function PagePreview({ page, isLoading }: PagePreviewProps) {
         <span>Pages will appear here as they&apos;re generated</span>
       </div>
     )
+  }
+
+  if (!iframeSrc) {
+    return null
   }
 
   return (

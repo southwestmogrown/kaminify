@@ -179,6 +179,20 @@ describe('extractPageContent', () => {
     expect(content.listItems).toEqual([])
     expect(content.imageAlts).toEqual([])
   })
+
+  it('caps headings at 12', () => {
+    const manyHeadings = Array.from({ length: 20 }, (_, i) => `<h2>Heading ${i}</h2>`).join('')
+    const site = makeSite(`<html><body>${manyHeadings}</body></html>`)
+    const content = extractPageContent(site, makePage())
+    expect(content.headings.length).toBeLessThanOrEqual(12)
+  })
+
+  it('caps paragraphs at 20', () => {
+    const manyParas = Array.from({ length: 30 }, (_, i) => `<p>This is paragraph number ${i} with enough text to pass the filter</p>`).join('')
+    const site = makeSite(`<html><body>${manyParas}</body></html>`)
+    const content = extractPageContent(site, makePage())
+    expect(content.paragraphs.length).toBeLessThanOrEqual(20)
+  })
 })
 
 // Needed for the cookie filter test

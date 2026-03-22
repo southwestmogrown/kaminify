@@ -102,6 +102,15 @@ export default function ProgressFeed({ events, isRunning }: ProgressFeedProps) {
           )
         }
 
+        if (event.type === 'warning') {
+          return (
+            <div key={i} className="flex items-start gap-2 py-1" style={{ color: 'var(--color-warning)' }}>
+              <span className="w-4 shrink-0 mt-0.5 text-center">!</span>
+              <span>{event.message}</span>
+            </div>
+          )
+        }
+
         if (event.type === 'done') {
           return (
             <div key={i} className="flex items-center gap-2 py-1 font-bold" style={{ color: 'var(--color-success)' }}>
