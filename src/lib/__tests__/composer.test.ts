@@ -116,6 +116,18 @@ describe('composePage', () => {
     expect(result).toMatch(/^<!doctype html>/i)
   })
 
+  it('strips ```html code fences and returns valid HTML', async () => {
+    mockResponse('```html\n' + validHtml + '\n```')
+    const result = await composePage(makeDesign(), makeContent(), makePages(), 'test-key')
+    expect(result).toMatch(/^<!DOCTYPE html>/i)
+  })
+
+  it('strips plain ``` code fences and returns valid HTML', async () => {
+    mockResponse('```\n' + validHtml + '\n```')
+    const result = await composePage(makeDesign(), makeContent(), makePages(), 'test-key')
+    expect(result).toMatch(/^<!DOCTYPE html>/i)
+  })
+
   it('uses COMPOSER_MODEL env var when set', async () => {
     vi.stubEnv('COMPOSER_MODEL', 'claude-haiku-4-5-20251001')
     mockResponse(validHtml)
