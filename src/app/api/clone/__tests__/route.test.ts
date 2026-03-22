@@ -27,7 +27,7 @@ const mockExtractDesignSystem = vi.mocked(extractDesignSystem)
 const mockExtractPageContent = vi.mocked(extractPageContent)
 const mockComposePage = vi.mocked(composePage)
 
-const fakeSite: ScrapedSite = { url: 'https://example.com', html: '<html/>', css: '', title: 'Test' }
+const fakeSite: ScrapedSite = { url: 'https://example.com', html: '<html/>', css: '', title: 'Test', jsRendered: false }
 const fakePages: DiscoveredPage[] = [
   { url: 'https://example.com/', title: 'Home', slug: 'index', navLabel: 'Home' },
 ]

@@ -3,7 +3,7 @@ import { extractDesignSystem, extractPageContent } from '../extractor'
 import type { DiscoveredPage, ScrapedSite } from '../types'
 
 function makeSite(html: string, css = '', url = 'https://example.com'): ScrapedSite {
-  return { url, html, css, title: '' }
+  return { url, html, css, title: '', jsRendered: false }
 }
 
 function makePage(overrides: Partial<DiscoveredPage> = {}): DiscoveredPage {

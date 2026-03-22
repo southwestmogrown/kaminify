@@ -24,6 +24,20 @@
 
 ## Entries
 
+### [feat/issue-33-js-render-detection] JS-render detection heuristic — 2026-03-21 [IN PROGRESS — PR #53 → staging]
+
+**What was built:**
+- `src/lib/types.ts` — added `jsRendered: boolean` to `ScrapedSite`
+- `src/lib/scraper.ts` — detects JS-rendered sites before `noscript` strip using three signals: body text < 500 chars, presence of `div#root/app/__next/__nuxt`, or `<noscript>` containing "javascript"; sets `jsRendered` on returned object
+- `src/app/api/clone/route.ts` — emits `warning` SSE events after each `scrapeSite()` call when `jsRendered` is true
+- `src/lib/__tests__/scraper.test.ts` — 4 new test cases; 17/17 passing
+- Fixed missing `jsRendered` in `ScrapedSite` mocks across `route.test.ts`, `discover.test.ts`, `extractor.test.ts`, `PageTabBar.test.tsx`
+
+**Design decisions:**
+- Non-blocking: detection is informational only; pipeline continues regardless
+
+---
+
 ### [feat/issue-36-mobile-preview-toggle] Mobile preview toggle — 2026-03-21 [IN PROGRESS]
 
 **What was built:**
