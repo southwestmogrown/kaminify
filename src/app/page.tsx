@@ -70,6 +70,7 @@ export default function Home() {
       const decoder = new TextDecoder()
       let buffer = ''
       let receivedDone = false
+      let receivedError = false
       let completedPages = 0
 
       while (true) {
@@ -95,13 +96,16 @@ export default function Home() {
             if (event.type === 'done') {
               receivedDone = true
             }
+            if (event.type === 'error') {
+              receivedError = true
+            }
           } catch {
             // malformed event — skip
           }
         }
       }
 
-      if (!receivedDone && !abortRef.current?.signal.aborted) {
+      if (!receivedDone && !receivedError && !abortRef.current?.signal.aborted) {
         setEvents(prev => [
           ...prev,
           {
