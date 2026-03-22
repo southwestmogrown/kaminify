@@ -24,6 +24,20 @@
 
 ## Entries
 
+### [feat/issue-33-browser-scraper] Browser scraper fallback — 2026-03-22 [IN PROGRESS]
+
+**What was built:**
+- `src/lib/browserScraper.ts` — `scrapeWithBrowser(url)` connects to Railway-hosted Browserless via `BROWSERLESS_WS_URL`; mirrors `scrapeSite()` exactly (same CSS extraction, script stripping, ScrapedSite shape); throws descriptively when env var is unset; always disconnects in `finally`
+- `src/app/api/clone/route.ts` — conditional browser fallback: when `jsRendered` is true, re-scrapes with browser instead of emitting a warning; `const` → `let` on both site vars
+- `.env.example` — documents `BROWSERLESS_WS_URL`
+- `src/lib/__tests__/browserScraper.test.ts` — 6 tests: missing env var, valid ScrapedSite, inline styles, linked stylesheets, script stripping, browser disconnect on error
+
+**Design decisions:**
+- `jsRendered: true` hardcoded on browser scraper return (we only call it when already detected)
+- Railway hosts `ghcr.io/browserless/chromium`; WS URL format: `wss://app.up.railway.app?token=TOKEN`
+
+---
+
 ### [feat/issue-33-js-render-detection] JS-render detection heuristic — 2026-03-21 [IN PROGRESS — PR #53 → staging]
 
 **What was built:**
