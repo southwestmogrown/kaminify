@@ -10,6 +10,7 @@ Hard constraints:
 - Fully self-contained: all CSS in a <style> block, no external stylesheets, no CDN links, no @import. Use system font stacks unless a web font is critical to the design.
 - Use only the text provided in pageContent — do not invent copy, statistics, or names.
 - Include navigation linking all pages; use the href field from each navigation entry as the anchor href attribute; mark currentSlug as active.
+- Do not apply decorative li::before or li::after pseudo-elements as a global rule — scope them to specific named component classes only.
 
 Apply the design tokens, color palette, component patterns, and layout feel from the design system faithfully. Make it responsive and production-quality. Write efficient, minimal CSS — avoid redundancy. The complete page must fit in a single response.`
 
