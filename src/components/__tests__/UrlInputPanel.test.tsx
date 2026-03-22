@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import UrlInputPanel from '../UrlInputPanel'
 
@@ -41,21 +41,22 @@ describe('UrlInputPanel', () => {
     expect(screen.getByLabelText('running')).toBeInTheDocument()
   })
 
-  it('shows inline error on blur with invalid URL', () => {
+  it('shows validation error on submit with invalid URL', async () => {
     setup()
-    const input = screen.getByLabelText('Design source URL')
-    fireEvent.change(input, { target: { value: 'not-a-url' } })
-    fireEvent.blur(input)
+    await userEvent.type(screen.getByLabelText('Design source URL'), 'not-a-url')
+    await userEvent.type(screen.getByLabelText('Content source URL'), 'https://example.com')
+    await userEvent.click(screen.getByRole('button', { name: /clone/i }))
     expect(screen.getByText(/must start with http/i)).toBeInTheDocument()
   })
 
-  it('shows no error for valid URL on blur', () => {
+  it('clears error immediately when user starts correcting', async () => {
     setup()
-    const input = screen.getByLabelText('Design source URL')
-    fireEvent.change(input, { target: { value: 'https://stripe.com' } })
-    fireEvent.blur(input)
+    await userEvent.type(screen.getByLabelText('Design source URL'), 'not-a-url')
+    await userEvent.type(screen.getByLabelText('Content source URL'), 'https://example.com')
+    await userEvent.click(screen.getByRole('button', { name: /clone/i }))
+    expect(screen.getByText(/must start with http/i)).toBeInTheDocument()
+    await userEvent.type(screen.getByLabelText('Design source URL'), 's')
     expect(screen.queryByText(/must start with http/i)).not.toBeInTheDocument()
-    expect(screen.queryByText(/invalid url/i)).not.toBeInTheDocument()
   })
 
   it('Clone button enabled when both inputs are valid URLs', async () => {
@@ -82,11 +83,11 @@ describe('UrlInputPanel', () => {
     expect(screen.getByLabelText('Content source URL')).toHaveValue('https://github.com')
   })
 
-  it('pill click clears existing errors', async () => {
+  it('pill click clears submit errors', async () => {
     setup()
-    const input = screen.getByLabelText('Design source URL')
-    fireEvent.change(input, { target: { value: 'bad-url' } })
-    fireEvent.blur(input)
+    await userEvent.type(screen.getByLabelText('Design source URL'), 'not-a-url')
+    await userEvent.type(screen.getByLabelText('Content source URL'), 'https://example.com')
+    await userEvent.click(screen.getByRole('button', { name: /clone/i }))
     expect(screen.getByText(/must start with http/i)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Stripe + GitHub' }))
     expect(screen.queryByText(/must start with http/i)).not.toBeInTheDocument()
