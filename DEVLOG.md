@@ -24,6 +24,14 @@
 
 ## Entries
 
+### [fix/nav-hrefs] Fix inter-page navigation links — 2026-03-22 [DONE]
+
+**Problem:** Cloned pages used anchor links (`#pricing`, `#contact-sales`) for navigation instead of file links (`pricing.html`, `contact-sales.html`). The navigation data sent to Claude only included `slug` and `label` — no `href` — so Claude guessed the format and defaulted to in-page anchors.
+
+**Fix:** Added `href: \`${slug}.html\`` to each navigation entry in `composer.ts` and tightened the system prompt to instruct Claude to use the `href` field directly. One new test asserts the href shape.
+
+---
+
 ### [fix/css-extraction-limits] Raise CSS extraction limits for visual fidelity — 2026-03-22 [DONE]
 
 **Problem:** Cloned pages rendered with correct fonts and layout but no colors, backgrounds, or visual design. Root cause: two constants were too conservative for production-scale CSS.
