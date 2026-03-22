@@ -7,7 +7,7 @@ const SYSTEM_PROMPT = `You are an expert web developer. Given a design system an
 
 Hard constraints:
 - Output ONLY the HTML document starting with <!DOCTYPE html>. No markdown, no code fences, no explanation.
-- Fully self-contained: all CSS in a <style> block, no external stylesheets, no CDN links, no @import. Use system font stacks unless a web font is critical to the design.
+- Fully self-contained: all CSS in a <style> block, no @import, no CDN links. If webFontUrl is provided in designSystem, inject exactly one <link rel="stylesheet" href="...webFontUrl..."> as the first element inside <head>; otherwise use system font stacks.
 - Use only the text provided in pageContent — do not invent copy, statistics, or names.
 - Include navigation linking all pages; use the href field from each navigation entry as the anchor href attribute; mark currentSlug as active.
 - Do not apply decorative li::before or li::after pseudo-elements as a global rule — scope them to specific named component classes only.
@@ -35,6 +35,7 @@ export async function composePage(
       fontStack: design.fontStack,
       componentPatterns: design.componentPatterns,
       rawCss: rawCssSnippet,
+      ...(design.webFontUrl ? { webFontUrl: design.webFontUrl } : {}),
     },
     pageContent: {
       title: content.title,
