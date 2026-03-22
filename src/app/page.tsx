@@ -23,6 +23,7 @@ export default function Home() {
   const [runsUsed, setRunsUsed] = useState(0)
   const [showApiKeyInput, setShowApiKeyInput] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
+  const [mobilePreview, setMobilePreview] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
@@ -295,8 +296,14 @@ export default function Home() {
           </aside>
 
           <div className="flex flex-col flex-1 min-h-0">
-            <PageTabBar pages={pages} activeSlug={activeSlug} onSelect={setActiveSlug} />
-            <PagePreview page={activePage} isLoading={isRunning && pages.length === 0} />
+            <PageTabBar
+              pages={pages}
+              activeSlug={activeSlug}
+              onSelect={setActiveSlug}
+              mobilePreview={mobilePreview}
+              onToggleMobilePreview={() => setMobilePreview((v) => !v)}
+            />
+            <PagePreview page={activePage} isLoading={isRunning && pages.length === 0} mobilePreview={mobilePreview} />
           </div>
         </div>
       )}
