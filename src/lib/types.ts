@@ -30,6 +30,7 @@ export interface DesignSystem {
     button: string  // raw HTML of a CTA button ("" if not found)
   }
   rawCss: string  // full CSS (stored unmodified; sliced before passing to Claude)
+  webFontUrl?: string  // Google Fonts stylesheet URL, if found on the design site
 }
 
 // Extracted content from one page of the content site

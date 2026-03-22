@@ -56,6 +56,26 @@ describe('extractDesignSystem', () => {
     expect(Array.isArray(ds.colorPalette)).toBe(true)
   })
 
+  it('extracts Google Fonts URL from <link> tag in HTML', () => {
+    const fontUrl = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap'
+    const site = makeSite(`<html><head><link rel="stylesheet" href="${fontUrl}"></head></html>`)
+    const ds = extractDesignSystem(site)
+    expect(ds.webFontUrl).toBe(fontUrl)
+  })
+
+  it('extracts Google Fonts URL from @import in CSS when no link tag present', () => {
+    const fontUrl = 'https://fonts.googleapis.com/css2?family=Roboto&display=swap'
+    const site = makeSite('', `@import url('${fontUrl}'); body { color: red; }`)
+    const ds = extractDesignSystem(site)
+    expect(ds.webFontUrl).toBe(fontUrl)
+  })
+
+  it('returns undefined webFontUrl when no Google Fonts found', () => {
+    const site = makeSite('', 'body { color: red; }')
+    const ds = extractDesignSystem(site)
+    expect(ds.webFontUrl).toBeUndefined()
+  })
+
   it('finds nav HTML via cheerio', () => {
     const site = makeSite('<html><body><nav><a href="/">Home</a></nav></body></html>')
     const ds = extractDesignSystem(site)

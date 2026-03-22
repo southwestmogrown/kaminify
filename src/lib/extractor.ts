@@ -86,6 +86,19 @@ function extractBorderRadius(css: string): string[] {
   return [...found].slice(0, 10)
 }
 
+const GOOGLE_FONT_IMPORT_RE = /(?:@import\s+url\(['"]?|@import\s+['"])(https:\/\/fonts\.googleapis\.com[^'")\s]+)/
+
+function extractWebFontUrl(html: string, css: string): string | undefined {
+  // Prefer the <link> tag in HTML — canonical URL before the scraper fetches it
+  const $html = cheerio.load(html)
+  const linkHref = $html('link[rel="stylesheet"][href*="fonts.googleapis.com"]').first().attr('href')
+  if (linkHref) return linkHref
+
+  // Fallback: @import in concatenated CSS
+  const match = css.match(GOOGLE_FONT_IMPORT_RE)
+  return match?.[1]
+}
+
 function findComponent($: cheerio.CheerioAPI, selectors: string[]): string {
   for (const sel of selectors) {
     const el = $(sel).first()
@@ -133,6 +146,8 @@ export function extractDesignSystem(site: ScrapedSite): DesignSystem {
     '[class*="cta"]:first-of-type',
   ])
 
+  const webFontUrl = extractWebFontUrl(site.html, site.css)
+
   return {
     cssVariables: extractCssVariables(site.css),
     colorPalette: extractColors(site.css),
@@ -141,6 +156,7 @@ export function extractDesignSystem(site: ScrapedSite): DesignSystem {
     borderRadius: extractBorderRadius(site.css),
     componentPatterns: { nav, hero, footer, card, button },
     rawCss: site.css,
+    ...(webFontUrl ? { webFontUrl } : {}),
   }
 }
 

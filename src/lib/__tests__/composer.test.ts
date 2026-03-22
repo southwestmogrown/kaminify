@@ -100,6 +100,26 @@ describe('composePage', () => {
     }
   })
 
+  it('passes webFontUrl to Claude when present on design', async () => {
+    mockResponse(validHtml)
+    const fontUrl = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap'
+    const designWithFont = { ...makeDesign(), webFontUrl: fontUrl }
+    await composePage(designWithFont, makeContent(), makePages(), 'test-key', 'claude-haiku-4-5-20251001')
+
+    const callArg = mockCreate.mock.calls[0][0]
+    const userContent = JSON.parse(callArg.messages[0].content)
+    expect(userContent.designSystem.webFontUrl).toBe(fontUrl)
+  })
+
+  it('omits webFontUrl from payload when not present on design', async () => {
+    mockResponse(validHtml)
+    await composePage(makeDesign(), makeContent(), makePages(), 'test-key', 'claude-haiku-4-5-20251001')
+
+    const callArg = mockCreate.mock.calls[0][0]
+    const userContent = JSON.parse(callArg.messages[0].content)
+    expect(userContent.designSystem.webFontUrl).toBeUndefined()
+  })
+
   it('sets navigation hrefs to slug.html format', async () => {
     mockResponse(validHtml)
     const pages = makePages()
