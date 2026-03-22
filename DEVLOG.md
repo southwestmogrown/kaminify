@@ -24,6 +24,14 @@
 
 ## Entries
 
+### [fix/nav-hrefs] Fix inter-page navigation links — 2026-03-22 [DONE]
+
+**Problem:** Cloned pages used anchor links (`#pricing`, `#contact-sales`) for navigation instead of file links (`pricing.html`, `contact-sales.html`). The navigation data sent to Claude only included `slug` and `label` — no `href` — so Claude guessed the format and defaulted to in-page anchors.
+
+**Fix:** Added `href: \`${slug}.html\`` to each navigation entry in `composer.ts` and tightened the system prompt to instruct Claude to use the `href` field directly. One new test asserts the href shape.
+
+---
+
 ### [feat/issue-47-per-page-orchestration] Per-page client orchestration — 2026-03-22 [DONE]
 
 **Problem:** Single `/api/clone` SSE route ran the full pipeline in one serverless call. On Vercel Hobby (60s hard limit), a 3-page Sonnet run (3 × ~15s compose + ~15s setup) regularly hit the ceiling.

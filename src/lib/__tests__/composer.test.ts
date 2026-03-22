@@ -100,6 +100,19 @@ describe('composePage', () => {
     }
   })
 
+  it('sets navigation hrefs to slug.html format', async () => {
+    mockResponse(validHtml)
+    const pages = makePages()
+    await composePage(makeDesign(), makeContent(), pages, 'test-key', 'claude-haiku-4-5-20251001')
+
+    const callArg = mockCreate.mock.calls[0][0]
+    const userContent = JSON.parse(callArg.messages[0].content)
+    for (const page of pages) {
+      const entry = userContent.navigation.find((n: { slug: string }) => n.slug === page.slug)
+      expect(entry?.href).toBe(`${page.slug}.html`)
+    }
+  })
+
   it('sets currentSlug to content.slug', async () => {
     mockResponse(validHtml)
     const content = makeContent()
