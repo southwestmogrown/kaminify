@@ -80,7 +80,7 @@ describe('composePage', () => {
   it('truncates rawCss to 2500 characters', async () => {
     mockResponse(validHtml)
     const longCss = 'a'.repeat(12000)
-    await composePage(makeDesign(longCss), makeContent(), makePages(), 'test-key')
+    await composePage(makeDesign(longCss), makeContent(), makePages(), 'test-key', 'claude-haiku-4-5-20251001')
 
     const callArg = mockCreate.mock.calls[0][0]
     const userContent = JSON.parse(callArg.messages[0].content)
@@ -90,7 +90,7 @@ describe('composePage', () => {
   it('includes all page slugs in the navigation array', async () => {
     mockResponse(validHtml)
     const pages = makePages()
-    await composePage(makeDesign(), makeContent(), pages, 'test-key')
+    await composePage(makeDesign(), makeContent(), pages, 'test-key', 'claude-haiku-4-5-20251001')
 
     const callArg = mockCreate.mock.calls[0][0]
     const userContent = JSON.parse(callArg.messages[0].content)
@@ -103,7 +103,7 @@ describe('composePage', () => {
   it('sets currentSlug to content.slug', async () => {
     mockResponse(validHtml)
     const content = makeContent()
-    await composePage(makeDesign(), content, makePages(), 'test-key')
+    await composePage(makeDesign(), content, makePages(), 'test-key', 'claude-haiku-4-5-20251001')
 
     const callArg = mockCreate.mock.calls[0][0]
     const userContent = JSON.parse(callArg.messages[0].content)
