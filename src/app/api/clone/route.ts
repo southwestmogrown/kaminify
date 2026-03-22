@@ -69,7 +69,7 @@ export async function GET(request: Request): Promise<Response> {
 
         send(controller, { type: 'done' })
       } catch (err) {
-        send(controller, { type: 'error', error: String(err) })
+        send(controller, { type: 'error', error: err instanceof Error ? err.message : String(err) })
       } finally {
         controller.close()
       }
