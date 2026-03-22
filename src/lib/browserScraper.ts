@@ -12,11 +12,23 @@ export async function scrapeWithBrowser(url: string): Promise<ScrapedSite> {
   }
 
   const browser = await puppeteer.connect({ browserWSEndpoint: wsUrl })
-  const page = await browser.newPage()
+
+  let page: Awaited<ReturnType<typeof browser.newPage>>
+  try {
+    page = await browser.newPage()
+  } catch (err) {
+    await browser.disconnect()
+    throw new Error(`Browser: failed to open new page — ${err instanceof Error ? err.message : JSON.stringify(err)}`)
+  }
 
   try {
     await page.setUserAgent(USER_AGENT)
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15_000 })
+
+    try {
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15_000 })
+    } catch (err) {
+      throw new Error(`Browser: failed to navigate to ${url} — ${err instanceof Error ? err.message : JSON.stringify(err)}`)
+    }
 
     const html = await page.content()
     const $ = cheerio.load(html)
