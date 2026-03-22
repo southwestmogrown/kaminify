@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { ClonedPage } from '@/lib/types'
+import dynamic from 'next/dynamic'
+const GeneratingAnimation = dynamic(() => import('./GeneratingAnimation'), { ssr: false })
 
 interface PagePreviewProps {
   page: ClonedPage | null
@@ -33,11 +35,7 @@ export default function PagePreview({ page, isLoading }: PagePreviewProps) {
   }, [page?.slug])  // intentional: re-run only on slug change, not on html content change
 
   if (isLoading) {
-    return (
-      <div className="flex flex-1 items-center justify-center" style={{ color: 'var(--color-text-muted)' }}>
-        <span>Generating pages…</span>
-      </div>
-    )
+    return <GeneratingAnimation />
   }
 
   if (!page) {
