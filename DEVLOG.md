@@ -24,6 +24,29 @@
 
 ## Entries
 
+### [feat/issue-38-prompt-iteration] Model selector + pipeline hardening — 2026-03-21 [DONE — PR #44 → staging → main]
+
+**What was built:**
+- `src/lib/composer.ts` — `model` promoted to explicit parameter (was read from `COMPOSER_MODEL` env var); markdown code fence stripping before doctype validation (Haiku wraps output in ` ```html ` blocks despite instructions); `stop_reason === 'max_tokens'` check throws descriptive error instead of silently returning broken HTML; `trimStart()` before fence check
+- `src/lib/extractor.ts` — `MAX_HEADINGS=12`, `MAX_PARAGRAPHS=20`, `MAX_LIST_ITEMS=25`, `MAX_CTA_TEXTS=8`, `MAX_IMAGE_ALTS=12` caps applied at return time — reduces input token burn for complex pages
+- `src/app/api/clone/route.ts` — `byokKey` split from `apiKey` to distinguish demo vs BYOK at model selection time; module-level `BYOK_MODELS` allowlist; Haiku enforced server-side for demo (regardless of query param); BYOK allows Haiku/Sonnet/Opus with Sonnet as default; `model` passed to `composePage()`
+- `src/app/page.tsx` — `model` state (defaults to Haiku; resets to Sonnet on BYOK key save, back to Haiku on clear); `model` included in `/api/clone` URLSearchParams; `model`/`onModelChange`/`hasApiKey` props passed to `UrlInputPanel`; `iframeSrc` initialized as `null` instead of `""` (fixes Next.js empty-src warning); iframe only renders once blob URL is ready
+- `src/components/UrlInputPanel.tsx` — model `<select>` added left of Clone button; demo: single locked Haiku option; BYOK: all three options; button changed from `w-full` to `flex-1` to share row with selector; `MODEL_OPTIONS` constant at module level
+- Tests: 132 passing — fence-stripping tests, model param tests, route test assertions updated to 5-arg `composePage`
+
+**Decisions:**
+- Server-side model enforcement — client sends preference, server validates against allowlist and forces Haiku for demo; can't be spoofed
+- Haiku default for demo, Sonnet default for BYOK — Haiku is fast and cheap for demos; Sonnet is the right quality floor when users pay with their own key
+- Model as parameter, not env var — env var approach didn't allow per-request control; caller now owns model selection, env var pattern retired
+- `iframeSrc` null guard — iframe with `src=""` triggers Next.js warning and a redundant browser re-fetch of the page; null initial state + conditional render eliminates both
+
+**Gotchas:**
+- Haiku frequently wraps HTML in markdown code fences (` ```html `) even with explicit "output only HTML" instructions — fence stripping is a required post-processing step, not a prompt fix
+- `stop_reason === 'max_tokens'` must be checked *before* doctype validation — a truncated response can still start with `<!DOCTYPE html>` and pass validation, silently producing a broken page
+- Route tests asserting `composePage` call signature needed `expect.any(String)` as 5th arg after model param was added
+
+---
+
 ### [Landing Alignment] Visual identity + copy — 2026-03-21 [DONE]
 
 **What was built:**
