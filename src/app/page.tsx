@@ -19,6 +19,7 @@ export default function Home() {
   const [activeSlug, setActiveSlug] = useState<string | null>(null)
   const [hasStarted, setHasStarted] = useState(false)
   const [apiKey, setApiKey] = useState<string | null>(null)
+  const [model, setModel] = useState('claude-haiku-4-5-20251001')
   const [runsUsed, setRunsUsed] = useState(0)
   const [showApiKeyInput, setShowApiKeyInput] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
@@ -53,7 +54,7 @@ export default function Home() {
     const headers: Record<string, string> = {}
     if (apiKey) headers['x-api-key'] = apiKey
 
-    const params = new URLSearchParams({ designUrl, contentUrl })
+    const params = new URLSearchParams({ designUrl, contentUrl, model })
 
     try {
       const res = await fetch(`/api/clone?${params}`, {
@@ -70,6 +71,7 @@ export default function Home() {
       const decoder = new TextDecoder()
       let buffer = ''
       let receivedDone = false
+      let receivedError = false
       let completedPages = 0
 
       while (true) {
@@ -95,13 +97,16 @@ export default function Home() {
             if (event.type === 'done') {
               receivedDone = true
             }
+            if (event.type === 'error') {
+              receivedError = true
+            }
           } catch {
             // malformed event — skip
           }
         }
       }
 
-      if (!receivedDone && !abortRef.current?.signal.aborted) {
+      if (!receivedDone && !receivedError && !abortRef.current?.signal.aborted) {
         setEvents(prev => [
           ...prev,
           {
@@ -144,11 +149,13 @@ export default function Home() {
   function handleSaveApiKey(key: string) {
     saveByokSession(key)
     setApiKey(key)
+    setModel('claude-sonnet-4-6')
   }
 
   function handleClearApiKey() {
     clearByokSession()
     setApiKey(null)
+    setModel('claude-haiku-4-5-20251001')
   }
 
   const activePage = useMemo(
@@ -242,6 +249,9 @@ export default function Home() {
           onClone={startClone}
           isRunning={isRunning}
           disabled={demoLimitReached}
+          model={model}
+          onModelChange={setModel}
+          hasApiKey={!!apiKey}
         />
         {!isRunning && pages.length > 0 && (
           <div className="mt-4 flex justify-end">

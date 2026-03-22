@@ -6,7 +6,16 @@ interface UrlInputPanelProps {
   onClone: (designUrl: string, contentUrl: string) => void
   isRunning: boolean
   disabled?: boolean
+  model: string
+  onModelChange: (model: string) => void
+  hasApiKey: boolean
 }
+
+const MODEL_OPTIONS = [
+  { value: 'claude-haiku-4-5-20251001', label: 'Haiku (fast)' },
+  { value: 'claude-sonnet-4-6', label: 'Sonnet' },
+  { value: 'claude-opus-4-6', label: 'Opus' },
+]
 
 const EXAMPLES = [
   { label: 'Stripe + me', design: 'https://stripe.com', content: 'https://github.com/shanewilkey' },
@@ -26,7 +35,7 @@ function validateUrl(v: string): string {
   }
 }
 
-export default function UrlInputPanel({ onClone, isRunning, disabled }: UrlInputPanelProps) {
+export default function UrlInputPanel({ onClone, isRunning, disabled, model, onModelChange, hasApiKey }: UrlInputPanelProps) {
   const [designUrl, setDesignUrl] = useState('')
   const [contentUrl, setContentUrl] = useState('')
   const [designError, setDesignError] = useState('')
@@ -144,12 +153,33 @@ export default function UrlInputPanel({ onClone, isRunning, disabled }: UrlInput
         </div>
       </div>
 
-      {/* Clone button */}
+      {/* Model selector + Clone button row */}
+      <div className="flex gap-3 items-center">
+        <select
+          value={model}
+          onChange={(e) => onModelChange(e.target.value)}
+          disabled={!hasApiKey || isRunning}
+          className="px-3 py-2.5 rounded-md text-sm border focus:outline-none focus:border-[var(--color-accent)] disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            backgroundColor: 'var(--color-bg-input)',
+            borderColor: 'var(--color-border)',
+            color: 'var(--color-text-primary)',
+          }}
+          aria-label="Model"
+        >
+          {hasApiKey
+            ? MODEL_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))
+            : <option value="claude-haiku-4-5-20251001">Haiku (fast)</option>
+          }
+        </select>
+
       <button
         type="button"
         onClick={handleSubmit}
         disabled={!canSubmit}
-        className="w-full py-2.5 rounded-md text-sm font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        className="flex-1 py-2.5 rounded-md text-sm font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         style={{
           backgroundColor: canSubmit ? 'var(--color-accent)' : 'var(--color-bg-elevated)',
           color: canSubmit ? '#000' : 'var(--color-text-muted)',
@@ -168,6 +198,7 @@ export default function UrlInputPanel({ onClone, isRunning, disabled }: UrlInput
         )}
         {isRunning ? 'Cloning…' : 'Clone'}
       </button>
+      </div>
     </div>
   )
 }

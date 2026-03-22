@@ -7,6 +7,12 @@ const CSS_VARIABLE_RE = /:root\s*\{([^}]*)\}/g
 const PATTERN_CHAR_LIMIT = 1200
 const COLOR_LIMIT = 20
 
+const MAX_HEADINGS = 12
+const MAX_PARAGRAPHS = 20
+const MAX_LIST_ITEMS = 25
+const MAX_CTA_TEXTS = 8
+const MAX_IMAGE_ALTS = 12
+
 const HEX_RE = /#([0-9a-fA-F]{3,8})\b/g
 const RGB_RE = /rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+[^)]*\)/g
 const HSL_RE = /hsla?\(\s*[\d.]+\s*,\s*[\d.%]+\s*,\s*[\d.%]+[^)]*\)/g
@@ -196,11 +202,11 @@ export function extractPageContent(site: ScrapedSite, page: DiscoveredPage): Pag
     url: page.url,
     title: page.title,
     slug: page.slug,
-    headings,
-    paragraphs,
-    listItems,
-    ctaTexts,
-    imageAlts,
+    headings: headings.slice(0, MAX_HEADINGS),
+    paragraphs: paragraphs.slice(0, MAX_PARAGRAPHS),
+    listItems: listItems.slice(0, MAX_LIST_ITEMS),
+    ctaTexts: ctaTexts.slice(0, MAX_CTA_TEXTS),
+    imageAlts: imageAlts.slice(0, MAX_IMAGE_ALTS),
     metaDescription,
   }
 }
