@@ -24,6 +24,19 @@
 
 ## Entries
 
+### [fix/browser-scraper-diagnostics] Fix Browserless v2 WS path — 2026-03-22 [DONE]
+
+**Root cause identified from Railway logs:**
+`No matching WebSocket route handler for "http://0.0.0.0:8000/"` — Browserless v2 (`ghcr.io/browserless/chromium`) removed the root `/` WebSocket handler. Each browser now requires its own path: `/chromium` for Chromium, `/chrome` for Chrome. Our `BROWSERLESS_WS_URL` had no path segment, so every connection attempt was rejected at the routing level, producing a plain `{}` throw from puppeteer.
+
+**What was fixed:**
+- `src/lib/browserScraper.ts` — parse `BROWSERLESS_WS_URL` with `new URL()`; inject `/chromium` as pathname when path is empty or `/`; cleanup `finally` block changed from try/catch-rethrow (which shadows original errors) to `.catch()` with `console.error` (logs cleanup failures without masking the primary error)
+- `src/lib/__tests__/browserScraper.test.ts` — 2 new tests: verifies `/chromium` path injection when URL has no path; verifies no double-append when path already set; tightened existing goto error assertion to match the full wrapped message
+
+**No env var changes required** — fix is in code, existing `BROWSERLESS_WS_URL` format (no path) continues to work.
+
+---
+
 ### [feat/issue-33-browser-scraper] Browser scraper fallback — 2026-03-22 [IN PROGRESS]
 
 **What was built:**
