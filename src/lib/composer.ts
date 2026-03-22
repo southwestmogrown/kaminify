@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { DesignSystem, DiscoveredPage, PageContent } from './types'
 
-const RAW_CSS_LIMIT = 2500
+const RAW_CSS_LIMIT = 8000
 
 const SYSTEM_PROMPT = `You are an expert web developer. Given a design system and page content, build a polished, complete, self-contained HTML page.
 

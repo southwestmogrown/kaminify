@@ -77,14 +77,14 @@ describe('composePage', () => {
     ).rejects.toThrow('Claude did not return valid HTML')
   })
 
-  it('truncates rawCss to 2500 characters', async () => {
+  it('truncates rawCss to 8000 characters', async () => {
     mockResponse(validHtml)
-    const longCss = 'a'.repeat(12000)
+    const longCss = 'a'.repeat(20000)
     await composePage(makeDesign(longCss), makeContent(), makePages(), 'test-key', 'claude-haiku-4-5-20251001')
 
     const callArg = mockCreate.mock.calls[0][0]
     const userContent = JSON.parse(callArg.messages[0].content)
-    expect(userContent.designSystem.rawCss.length).toBeLessThanOrEqual(2500)
+    expect(userContent.designSystem.rawCss.length).toBeLessThanOrEqual(8000)
   })
 
   it('includes all page slugs in the navigation array', async () => {
