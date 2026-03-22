@@ -1,4 +1,5 @@
 import { scrapeSite } from '@/lib/scraper'
+import { scrapeWithBrowser } from '@/lib/browserScraper'
 import { discoverPages } from '@/lib/discover'
 import { extractDesignSystem, extractPageContent } from '@/lib/extractor'
 import { composePage } from '@/lib/composer'
@@ -39,15 +40,17 @@ export async function GET(request: Request): Promise<Response> {
     async start(controller) {
       try {
         send(controller, { type: 'status', message: 'Scraping design site...' })
-        const designSite = await scrapeSite(designUrl)
+        let designSite = await scrapeSite(designUrl)
         if (designSite.jsRendered) {
-          send(controller, { type: 'warning', message: 'Design site appears to use client-side rendering — CSS extraction may be incomplete.' })
+          send(controller, { type: 'status', message: 'Detected JS rendering — retrying with browser...' })
+          designSite = await scrapeWithBrowser(designUrl)
         }
 
         send(controller, { type: 'status', message: 'Scraping content site...' })
-        const contentSite = await scrapeSite(contentUrl)
+        let contentSite = await scrapeSite(contentUrl)
         if (contentSite.jsRendered) {
-          send(controller, { type: 'warning', message: 'Content site appears to use client-side rendering — content extraction may be incomplete.' })
+          send(controller, { type: 'status', message: 'Detected JS rendering — retrying with browser...' })
+          contentSite = await scrapeWithBrowser(contentUrl)
         }
 
         send(controller, { type: 'status', message: 'Discovering pages...' })
