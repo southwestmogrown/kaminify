@@ -24,6 +24,19 @@
 
 ## Entries
 
+### [feat/google-fonts-passthrough] Google Fonts passthrough — 2026-03-22 [DONE]
+
+**Problem:** Cloned pages fell back to system font stacks because the `self-contained` constraint in the composer prompt banned all `@import` and external `<link>` tags, including Google Fonts. Font names were captured in `fontStack` but the actual typeface never loaded.
+
+**Fix:** Three-layer change:
+- `types.ts`: Added `webFontUrl?: string` to `DesignSystem`
+- `extractor.ts`: `extractWebFontUrl()` looks for a `<link rel="stylesheet" href="fonts.googleapis.com/...">` in the scraped HTML first; falls back to `@import` in the concatenated CSS
+- `composer.ts`: `webFontUrl` passed in user message; system prompt updated to inject one `<link>` when present, otherwise use system stacks
+
+**Tests:** 3 extractor tests (link tag, @import fallback, undefined when absent) + 2 composer tests (passed when present, omitted when absent).
+
+---
+
 ### [feat/issue-47-per-page-orchestration] Per-page client orchestration — 2026-03-22 [DONE]
 
 **Problem:** Single `/api/clone` SSE route ran the full pipeline in one serverless call. On Vercel Hobby (60s hard limit), a 3-page Sonnet run (3 × ~15s compose + ~15s setup) regularly hit the ceiling.
