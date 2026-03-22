@@ -4,7 +4,7 @@ import type { DesignSystem, DiscoveredPage, PageContent, ScrapedSite } from './t
 // --- Design System Extraction ---
 
 const CSS_VARIABLE_RE = /:root\s*\{([^}]*)\}/g
-const PATTERN_CHAR_LIMIT = 1200
+const PATTERN_CHAR_LIMIT = 2500
 const COLOR_LIMIT = 20
 
 const MAX_HEADINGS = 12
