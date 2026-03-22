@@ -11,7 +11,7 @@ Hard constraints:
 - Use only the text provided in pageContent — do not invent copy, statistics, or names.
 - Include navigation linking all pages in the navigation array; mark currentSlug as active.
 
-Apply the design tokens, color palette, component patterns, and layout feel from the design system faithfully. Make it responsive and production-quality.`
+Apply the design tokens, color palette, component patterns, and layout feel from the design system faithfully. Make it responsive and production-quality. Write efficient, minimal CSS — avoid redundancy. The complete page must fit in a single response.`
 
 export async function composePage(
   design: DesignSystem,
@@ -59,6 +59,12 @@ export async function composePage(
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: userMessage }],
   })
+
+  if (response.stop_reason === 'max_tokens') {
+    throw new Error(
+      'Output truncated — page too complex for the current token limit. Increase COMPOSER_MAX_TOKENS or use a simpler source site.'
+    )
+  }
 
   const block = response.content[0]
   const text = block?.type === 'text' ? block.text : ''

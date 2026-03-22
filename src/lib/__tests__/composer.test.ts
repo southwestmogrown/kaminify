@@ -44,6 +44,7 @@ const validHtml = '<!DOCTYPE html><html><head></head><body>Hello</body></html>'
 function mockResponse(text: string) {
   mockCreate.mockResolvedValueOnce({
     content: [{ type: 'text', text }],
+    stop_reason: 'end_turn',
   })
 }
 
@@ -131,5 +132,15 @@ describe('composePage', () => {
     expect(mockCreate).toHaveBeenCalledWith(
       expect.objectContaining({ max_tokens: 2048 })
     )
+  })
+
+  it('throws when Claude response is truncated (max_tokens)', async () => {
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: 'text', text: '<!DOCTYPE html><html><body>partial' }],
+      stop_reason: 'max_tokens',
+    })
+    await expect(
+      composePage(makeDesign(), makeContent(), makePages(), 'test-key')
+    ).rejects.toThrow('Output truncated')
   })
 })
