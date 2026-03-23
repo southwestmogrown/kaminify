@@ -46,6 +46,45 @@
 
 ---
 
+### [fix: Clerk modal text + proxy] Clerk appearance fixes — 2026-03-22 [DONE — PR #71]
+
+**Problem 1 — Unreadable modal text:** Clerk modal showed dark text on a dark background. Root cause: `ClerkProvider appearance.variables` used stale v4-era key names that Clerk v7 silently ignores. With `colorForeground` never set, Clerk defaulted to an unreadable text color.
+
+**Fix:** Renamed four keys in `src/app/layout.tsx`:
+- `colorText` → `colorForeground`
+- `colorTextSecondary` → `colorMutedForeground`
+- `colorInputBackground` → `colorInput`
+- `colorInputText` → `colorInputForeground`
+
+Values unchanged — only the key names were corrected to match the Clerk v7 API.
+
+**Problem 2 — Broken proxy middleware:** Two previous attempts (from Claude.ai desktop) produced incorrect middleware:
+1. First attempt: manual `NextResponse.rewrite` to `https://clerk.kaminify.com` — wrong target
+2. Second attempt: manual rewrite to `https://frontend-api.clerk.services` + `{} as any` cast — internal Clerk URL not meant for direct targeting; produced ESLint `no-explicit-any` build failure
+
+**Fix:** Replaced both with the correct Clerk v7 native API:
+```ts
+export default clerkMiddleware({ frontendApiProxy: { enabled: true } })
+```
+`/__clerk` path added to matcher. No manual rewrites, no `any` casts. Clerk derives the proxy URL automatically.
+
+**Gotcha:** Clerk appearance `elements` values must be Tailwind class strings, not `{ style: {} }` objects — style objects are silently dropped. For overrides not covered by `variables`, use global CSS targeting `cl-*` class names.
+
+---
+
+### [feat/issue-34-auth-clerk] Auth UX polish — 2026-03-22 [DONE — PR #69]
+
+**What was built:**
+- `src/app/page.tsx` — sign-in button: bordered, `text-secondary` label ("Sign in / Sign up"), orange hover via inline `onMouseEnter`/`onMouseLeave`; `SignInButton mode="redirect"` (not modal) so Clerk handles the full page flow
+- `src/app/layout.tsx` — `ClerkProvider appearance` prop: dark variables (`colorBackground: #12141f`, `colorPrimary: #f97316`, etc.); element-level overrides for social buttons, submit button (`bg-orange text-black`), footer links
+- `src/app/globals.css` — global CSS overrides for `cl-providerIcon` (CSS filter → orange), `cl-socialButtonsBlockButtonText` / `cl-socialButtonsIconButtonText` (`color: #f97316 !important`)
+
+**Decisions:**
+- Global CSS for icon/text color — Clerk's `elements` appearance API silently drops `{ style: {} }` objects; class name strings work but don't cover all sub-elements; `cl-*` global CSS is the reliable override path
+- `mode="redirect"` over `mode="modal"` — avoids z-index stacking issues with the app layout; Clerk handles its own page
+
+---
+
 ### [feat/google-fonts-passthrough] Google Fonts passthrough — 2026-03-22 [DONE]
 
 **Problem:** Cloned pages fell back to system font stacks because the `self-contained` constraint in the composer prompt banned all `@import` and external `<link>` tags, including Google Fonts. Font names were captured in `fontStack` but the actual typeface never loaded.
