@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, staging]
 
 jobs:
   lint-typecheck:
@@ -41,6 +41,8 @@ jobs:
       ANTHROPIC_API_KEY: sk-ant-dummy-key-for-build
       DEMO_RUN_LIMIT: 3
       DEMO_PAGE_LIMIT: 3
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_placeholder
+      CLERK_SECRET_KEY: sk_test_placeholder
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

@@ -4,12 +4,37 @@ interface DemoBannerProps {
   runsUsed: number
   runLimit: number
   hasApiKey: boolean
+  isSignedIn?: boolean
   onOpenApiKeyInput: () => void
 }
 
-export default function DemoBanner({ runsUsed, runLimit, hasApiKey, onOpenApiKeyInput }: DemoBannerProps) {
+export default function DemoBanner({ runsUsed, runLimit, hasApiKey, isSignedIn, onOpenApiKeyInput }: DemoBannerProps) {
   const bannerClass = 'sticky top-0 z-10 px-6 py-2 text-sm border-b flex items-center gap-1'
   const bannerStyle = { backgroundColor: 'var(--color-bg-elevated)', borderColor: 'var(--color-border)' }
+
+  if (isSignedIn && hasApiKey) {
+    return (
+      <div className={bannerClass} style={bannerStyle}>
+        <span style={{ color: 'var(--color-success)' }}>✓ Signed in · API key active — unlimited runs</span>
+      </div>
+    )
+  }
+
+  if (isSignedIn && !hasApiKey) {
+    return (
+      <div className={bannerClass} style={{ ...bannerStyle, color: 'var(--color-text-secondary)' }}>
+        <span>Signed in ·</span>
+        <span> </span>
+        <button
+          onClick={onOpenApiKeyInput}
+          className="underline cursor-pointer"
+          style={{ color: 'var(--color-accent)' }}
+        >
+          Add your API key to run →
+        </button>
+      </div>
+    )
+  }
 
   if (hasApiKey) {
     return (

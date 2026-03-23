@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useUser } from '@clerk/nextjs'
+import { SignInButton, UserButton } from '@clerk/nextjs'
 import type { CloneEvent, ClonedPage, DiscoveredPage } from '@/lib/types'
 import { getDemoSession, incrementDemoRun, getByokSession, saveByokSession, clearByokSession } from '@/lib/demo'
 import UrlInputPanel from '@/components/UrlInputPanel'
@@ -13,6 +15,7 @@ import ApiKeyInput from '@/components/ApiKeyInput'
 const DEMO_RUN_LIMIT = parseInt(process.env.NEXT_PUBLIC_DEMO_RUN_LIMIT ?? '3')
 
 export default function Home() {
+  const { isSignedIn } = useUser()
   const [isRunning, setIsRunning] = useState(false)
   const [events, setEvents] = useState<CloneEvent[]>([])
   const [pages, setPages] = useState<ClonedPage[]>([])
@@ -47,7 +50,7 @@ export default function Home() {
     setPages([])
     setActiveSlug(null)
 
-    if (!apiKey) {
+    if (!apiKey && !isSignedIn) {
       const updated = incrementDemoRun()
       setRunsUsed(updated.runsUsed)
     }
@@ -203,7 +206,7 @@ export default function Home() {
     () => pages.find((p) => p.slug === activeSlug) ?? null,
     [pages, activeSlug],
   )
-  const demoLimitReached = !apiKey && runsUsed >= DEMO_RUN_LIMIT
+  const demoLimitReached = !apiKey && !isSignedIn && runsUsed >= DEMO_RUN_LIMIT
 
   return (
     <main
@@ -221,21 +224,48 @@ export default function Home() {
         <span className="text-sm hidden sm:block" style={{ color: 'var(--color-text-muted)' }}>
           Clone any site&apos;s design. Keep your content.
         </span>
-        {apiKey && (
-          <button
-            onClick={handleClearApiKey}
-            className="ml-auto text-xs"
-            style={{ color: 'var(--color-text-muted)' }}
-          >
-            Remove API key
-          </button>
-        )}
+        <div className="ml-auto flex items-center gap-3">
+          {apiKey && (
+            <button
+              onClick={handleClearApiKey}
+              className="text-xs"
+              style={{ color: 'var(--color-text-muted)' }}
+            >
+              Remove API key
+            </button>
+          )}
+          {isSignedIn ? (
+            <UserButton />
+          ) : (
+            <SignInButton mode="redirect">
+              <button
+                className="text-xs px-3 py-1.5 rounded-md border transition-colors"
+                style={{
+                  color: 'var(--color-text-secondary)',
+                  borderColor: 'var(--color-border-bright)',
+                  backgroundColor: 'transparent',
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-accent)'
+                  ;(e.currentTarget as HTMLButtonElement).style.color = 'var(--color-accent)'
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-border-bright)'
+                  ;(e.currentTarget as HTMLButtonElement).style.color = 'var(--color-text-secondary)'
+                }}
+              >
+                Sign in / Sign up
+              </button>
+            </SignInButton>
+          )}
+        </div>
       </header>
 
       <DemoBanner
         runsUsed={runsUsed}
         runLimit={DEMO_RUN_LIMIT}
         hasApiKey={!!apiKey}
+        isSignedIn={!!isSignedIn}
         onOpenApiKeyInput={() => setShowApiKeyInput(true)}
       />
 

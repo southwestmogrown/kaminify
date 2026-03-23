@@ -24,6 +24,28 @@
 
 ## Entries
 
+### [feat/issue-34-auth-clerk] Clerk auth scaffold (Phase 1 of #34) — 2026-03-22 [DONE]
+
+**Problem:** No auth layer. Demo limit was enforced only in the client via `sessionStorage` with no account concept. Users who burned through 3 demo runs had no upgrade path without a BYOK key. No foundation for billing or site storage.
+
+**Solution:** Clerk auth scaffold — Phase 1 of issue #34.
+- Installed `@clerk/nextjs@7.0.6` (with `--legacy-peer-deps` due to React 19.1.0 vs Clerk's `~19.1.4` peer dep; functionally compatible)
+- `src/middleware.ts`: Clerk middleware, all routes public
+- `src/app/sign-in/[[...sign-in]]/page.tsx` + `sign-up`: catch-all Clerk pages
+- `src/app/layout.tsx`: wrapped in `<ClerkProvider>`
+- `src/app/page.tsx`: `useUser()` for auth state; demo counter skipped when signed in; `demoLimitReached` also gates on `!isSignedIn`; header shows `<SignInButton>` or `<UserButton>`
+- `src/components/DemoBanner.tsx`: `isSignedIn` prop with three states (signed-in+key, signed-in+no-key, unauthenticated)
+- `.github/workflows/ci.yml`: added `staging` to PR trigger branches; Clerk dummy env vars in build job
+- `CLAUDE.md`: documented new Clerk env vars
+
+**New env vars needed in Vercel:** `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in`, `NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up`, `NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/`, `NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/`
+
+**Code review catch:** `demoLimitReached` didn't account for `isSignedIn` — a user who burned 3 demo runs then signed in would stay locked out. Fixed to `!apiKey && !isSignedIn && runsUsed >= DEMO_RUN_LIMIT`.
+
+**Not included (Phase 2):** Stripe billing, managed key for paid users, server-side limit enforcement, site storage.
+
+---
+
 ### [feat/google-fonts-passthrough] Google Fonts passthrough — 2026-03-22 [DONE]
 
 **Problem:** Cloned pages fell back to system font stacks because the `self-contained` constraint in the composer prompt banned all `@import` and external `<link>` tags, including Google Fonts. Font names were captured in `fontStack` but the actual typeface never loaded.

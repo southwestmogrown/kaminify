@@ -82,3 +82,12 @@ body::after {
   animation: logo-pulse 2s ease-in-out infinite;
   flex-shrink: 0;
 }
+
+/* Clerk modal overrides */
+.cl-providerIcon {
+  filter: brightness(0) saturate(100%) invert(56%) sepia(84%) saturate(1400%) hue-rotate(345deg) brightness(103%);
+}
+.cl-socialButtonsBlockButtonText,
+.cl-socialButtonsIconButtonText {
+  color: #f97316 !important;
+}
