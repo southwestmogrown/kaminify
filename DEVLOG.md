@@ -24,6 +24,21 @@
 
 ## Entries
 
+### [feat/demo-pairings-random] Demo pairings refresh + random picker — 2026-03-23 [DONE]
+
+**Problem:** The 4 example pills (Stripe+me, Stripe+GitHub, etc.) were weak and repetitive. No way to discover pairings without manually entering URLs.
+
+**What was built:**
+- `src/components/UrlInputPanel.tsx` — replaced `EXAMPLES` with 9 curated pairings (3 per expected page-count tier); added `HIDDEN_EXAMPLES` (3 Easter egg pairings: OpenAI→Anthropic, Apple→Microsoft, Netflix→Hulu); added `pickRandom()` that draws from the full 12-item pool; added shuffle icon button (`aria-label="Random example"`) inline with the "Try an example →" label
+- `src/components/__tests__/UrlInputPanel.test.tsx` — updated 2 tests from old "Stripe + GitHub" pill to "Stripe → Tailwind"; added random picker test
+
+**Easter eggs (hidden from pills, accessible via random only):**
+- OpenAI → Anthropic, Apple → Microsoft, Netflix → Hulu
+
+**Test count:** 172 → 182 (+1 net for random picker; 2 updated)
+
+---
+
 ### [feat/issue-34-auth-clerk] Clerk auth scaffold (Phase 1 of #34) — 2026-03-22 [DONE]
 
 **Problem:** No auth layer. Demo limit was enforced only in the client via `sessionStorage` with no account concept. Users who burned through 3 demo runs had no upgrade path without a BYOK key. No foundation for billing or site storage.
