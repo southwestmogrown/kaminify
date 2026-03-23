@@ -15,12 +15,15 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
     "@clerk/nextjs": "^7.0.6",
+    "@supabase/ssr": "^0.9.0",
+    "@supabase/supabase-js": "^2.100.0",
     "archiver": "^7.0.1",
     "cheerio": "^1.2.0",
     "next": "15.5.14",
     "puppeteer-core": "^24.40.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "stripe": "^20.4.1",
     "three": "^0.183.2"
   },
   "devDependencies": {
