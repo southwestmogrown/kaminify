@@ -46,6 +46,24 @@
 
 ---
 
+### [fix: Clerk proxy deadlock] Revert proxy, fix host_invalid — 2026-03-22 [DONE — PR #72]
+
+**Problem:** Live site and preview deployment both returning `host_invalid` from Clerk after proxy middleware was introduced by an external agent (Claude.ai desktop). Two successive proxy implementations both wrong:
+1. Manual `NextResponse.rewrite` to `https://clerk.kaminify.com` — wrong target
+2. Manual rewrite to `https://frontend-api.clerk.services` + `{} as any` — internal Clerk URL; caused ESLint `no-explicit-any` build failure
+3. Native `clerkMiddleware({ frontendApiProxy: { enabled: true } })` — correct API but missing `proxyUrl` on `ClerkProvider`; Clerk couldn't route requests correctly → `host_invalid` on live site
+
+**Root cause of original `host_invalid`:** Vercel preview URL (`*.vercel.app`) was not in the Clerk dev instance's allowed origins. A proxy was not the fix — it was a 30-second dashboard change.
+
+**Fix:**
+- `src/middleware.ts` reverted to plain `clerkMiddleware()` — the working baseline
+- `/__clerk` removed from matcher
+- User adds `*.vercel.app` wildcard to Clerk dashboard → dev instance → Allowed Origins
+
+**Lesson:** `host_invalid` on a new deployment domain = check Clerk dashboard allowed origins first. Do not reach for proxy code.
+
+---
+
 ### [fix: Clerk modal text + proxy] Clerk appearance fixes — 2026-03-22 [DONE — PR #71]
 
 **Problem 1 — Unreadable modal text:** Clerk modal showed dark text on a dark background. Root cause: `ClerkProvider appearance.variables` used stale v4-era key names that Clerk v7 silently ignores. With `colorForeground` never set, Clerk defaulted to an unreadable text color.
