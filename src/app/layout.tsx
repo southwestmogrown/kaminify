@@ -39,6 +39,8 @@ export default function RootLayout({
         elements: {
           card: 'border border-white/7 shadow-none',
           socialButtonsBlockButton: 'border border-white/7 bg-[#0d0f18] text-[#e8e6e0] hover:bg-[#12141f]',
+          socialButtonsBlockButtonText: 'text-[#f97316]',
+          socialButtonsProviderIcon: { style: { filter: 'brightness(0) saturate(100%) invert(56%) sepia(84%) saturate(1400%) hue-rotate(345deg) brightness(103%)' } },
           formButtonPrimary: 'bg-[#f97316] hover:bg-[#fb923c] text-black font-medium',
           footerActionLink: 'text-[#f97316] hover:text-[#fb923c]',
           identityPreviewEditButton: 'text-[#f97316]',
