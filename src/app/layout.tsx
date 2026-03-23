@@ -24,7 +24,28 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      appearance={{
+        variables: {
+          colorBackground: '#12141f',
+          colorInput: '#0d0f18',
+          colorForeground: '#e8e6e0',
+          colorMutedForeground: '#9e9d98',
+          colorInputForeground: '#e8e6e0',
+          colorPrimary: '#f97316',
+          colorDanger: '#f85149',
+          borderRadius: '0.5rem',
+        },
+        elements: {
+          card: 'border border-white/7 shadow-none',
+          socialButtonsBlockButton: 'border border-white/7 bg-[#0d0f18] text-[#e8e6e0] hover:bg-[#12141f]',
+          socialButtonsBlockButtonText: 'text-[#f97316]',
+          formButtonPrimary: 'bg-[#f97316] hover:bg-[#fb923c] text-black font-medium',
+          footerActionLink: 'text-[#f97316] hover:text-[#fb923c]',
+          identityPreviewEditButton: 'text-[#f97316]',
+        },
+      }}
+    >
       <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
         <body className="antialiased">{children}</body>
       </html>

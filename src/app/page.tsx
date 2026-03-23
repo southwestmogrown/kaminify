@@ -238,8 +238,23 @@ export default function Home() {
             <UserButton />
           ) : (
             <SignInButton mode="redirect">
-              <button className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                Sign in
+              <button
+                className="text-xs px-3 py-1.5 rounded-md border transition-colors"
+                style={{
+                  color: 'var(--color-text-secondary)',
+                  borderColor: 'var(--color-border-bright)',
+                  backgroundColor: 'transparent',
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-accent)'
+                  ;(e.currentTarget as HTMLButtonElement).style.color = 'var(--color-accent)'
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-border-bright)'
+                  ;(e.currentTarget as HTMLButtonElement).style.color = 'var(--color-text-secondary)'
+                }}
+              >
+                Sign in / Sign up
               </button>
             </SignInButton>
           )}
