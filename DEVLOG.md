@@ -46,6 +46,78 @@
 
 ---
 
+### [fix/clerk-user-button-popover] Fix UserButton popover unreadable text — 2026-03-22 [DONE]
+
+**Problem:** UserButton avatar dropdown showed "Manage Account" and "Sign Out" with unreadable text against the dark background. `colorForeground: '#e8e6e0'` set in `ClerkProvider.appearance.variables` does not cascade to popover action button sub-elements in Clerk v7.
+
+**Fix:** Added global CSS overrides in `src/app/globals.css` targeting `cl-userButtonPopover*` class names — the same reliable pattern used for `.cl-providerIcon` and `.cl-socialButtonsBlockButtonText`.
+
+- `.cl-userButtonPopoverCard` — explicit dark background + border
+- `.cl-userButtonPopoverActionButton` / `.cl-userButtonPopoverActionButtonText` — `#e8e6e0` text
+- `.cl-userButtonPopoverActionButtonIcon` — muted `#9e9d98`
+- `.cl-userButtonPopoverActionButton:hover` — subtle hover background
+
+**No logic changes. No tests required.**
+
+---
+
+### [fix: Clerk proxy deadlock] Revert proxy, fix host_invalid — 2026-03-22 [DONE — PR #72]
+
+**Problem:** Live site and preview deployment both returning `host_invalid` from Clerk after proxy middleware was introduced by an external agent (Claude.ai desktop). Two successive proxy implementations both wrong:
+1. Manual `NextResponse.rewrite` to `https://clerk.kaminify.com` — wrong target
+2. Manual rewrite to `https://frontend-api.clerk.services` + `{} as any` — internal Clerk URL; caused ESLint `no-explicit-any` build failure
+3. Native `clerkMiddleware({ frontendApiProxy: { enabled: true } })` — correct API but missing `proxyUrl` on `ClerkProvider`; Clerk couldn't route requests correctly → `host_invalid` on live site
+
+**Root cause of original `host_invalid`:** Vercel preview URL (`*.vercel.app`) was not in the Clerk dev instance's allowed origins. A proxy was not the fix — it was a 30-second dashboard change.
+
+**Fix:**
+- `src/middleware.ts` reverted to plain `clerkMiddleware()` — the working baseline
+- `/__clerk` removed from matcher
+- User adds `*.vercel.app` wildcard to Clerk dashboard → dev instance → Allowed Origins
+
+**Lesson:** `host_invalid` on a new deployment domain = check Clerk dashboard allowed origins first. Do not reach for proxy code.
+
+---
+
+### [fix: Clerk modal text + proxy] Clerk appearance fixes — 2026-03-22 [DONE — PR #71]
+
+**Problem 1 — Unreadable modal text:** Clerk modal showed dark text on a dark background. Root cause: `ClerkProvider appearance.variables` used stale v4-era key names that Clerk v7 silently ignores. With `colorForeground` never set, Clerk defaulted to an unreadable text color.
+
+**Fix:** Renamed four keys in `src/app/layout.tsx`:
+- `colorText` → `colorForeground`
+- `colorTextSecondary` → `colorMutedForeground`
+- `colorInputBackground` → `colorInput`
+- `colorInputText` → `colorInputForeground`
+
+Values unchanged — only the key names were corrected to match the Clerk v7 API.
+
+**Problem 2 — Broken proxy middleware:** Two previous attempts (from Claude.ai desktop) produced incorrect middleware:
+1. First attempt: manual `NextResponse.rewrite` to `https://clerk.kaminify.com` — wrong target
+2. Second attempt: manual rewrite to `https://frontend-api.clerk.services` + `{} as any` cast — internal Clerk URL not meant for direct targeting; produced ESLint `no-explicit-any` build failure
+
+**Fix:** Replaced both with the correct Clerk v7 native API:
+```ts
+export default clerkMiddleware({ frontendApiProxy: { enabled: true } })
+```
+`/__clerk` path added to matcher. No manual rewrites, no `any` casts. Clerk derives the proxy URL automatically.
+
+**Gotcha:** Clerk appearance `elements` values must be Tailwind class strings, not `{ style: {} }` objects — style objects are silently dropped. For overrides not covered by `variables`, use global CSS targeting `cl-*` class names.
+
+---
+
+### [feat/issue-34-auth-clerk] Auth UX polish — 2026-03-22 [DONE — PR #69]
+
+**What was built:**
+- `src/app/page.tsx` — sign-in button: bordered, `text-secondary` label ("Sign in / Sign up"), orange hover via inline `onMouseEnter`/`onMouseLeave`; `SignInButton mode="redirect"` (not modal) so Clerk handles the full page flow
+- `src/app/layout.tsx` — `ClerkProvider appearance` prop: dark variables (`colorBackground: #12141f`, `colorPrimary: #f97316`, etc.); element-level overrides for social buttons, submit button (`bg-orange text-black`), footer links
+- `src/app/globals.css` — global CSS overrides for `cl-providerIcon` (CSS filter → orange), `cl-socialButtonsBlockButtonText` / `cl-socialButtonsIconButtonText` (`color: #f97316 !important`)
+
+**Decisions:**
+- Global CSS for icon/text color — Clerk's `elements` appearance API silently drops `{ style: {} }` objects; class name strings work but don't cover all sub-elements; `cl-*` global CSS is the reliable override path
+- `mode="redirect"` over `mode="modal"` — avoids z-index stacking issues with the app layout; Clerk handles its own page
+
+---
+
 ### [feat/google-fonts-passthrough] Google Fonts passthrough — 2026-03-22 [DONE]
 
 **Problem:** Cloned pages fell back to system font stacks because the `self-contained` constraint in the composer prompt banned all `@import` and external `<link>` tags, including Google Fonts. Font names were captured in `fontStack` but the actual typeface never loaded.
