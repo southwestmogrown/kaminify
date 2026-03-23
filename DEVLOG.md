@@ -46,6 +46,21 @@
 
 ---
 
+### [fix/clerk-user-button-popover] Fix UserButton popover unreadable text — 2026-03-22 [DONE]
+
+**Problem:** UserButton avatar dropdown showed "Manage Account" and "Sign Out" with unreadable text against the dark background. `colorForeground: '#e8e6e0'` set in `ClerkProvider.appearance.variables` does not cascade to popover action button sub-elements in Clerk v7.
+
+**Fix:** Added global CSS overrides in `src/app/globals.css` targeting `cl-userButtonPopover*` class names — the same reliable pattern used for `.cl-providerIcon` and `.cl-socialButtonsBlockButtonText`.
+
+- `.cl-userButtonPopoverCard` — explicit dark background + border
+- `.cl-userButtonPopoverActionButton` / `.cl-userButtonPopoverActionButtonText` — `#e8e6e0` text
+- `.cl-userButtonPopoverActionButtonIcon` — muted `#9e9d98`
+- `.cl-userButtonPopoverActionButton:hover` — subtle hover background
+
+**No logic changes. No tests required.**
+
+---
+
 ### [fix: Clerk proxy deadlock] Revert proxy, fix host_invalid — 2026-03-22 [DONE — PR #72]
 
 **Problem:** Live site and preview deployment both returning `host_invalid` from Clerk after proxy middleware was introduced by an external agent (Claude.ai desktop). Two successive proxy implementations both wrong:
