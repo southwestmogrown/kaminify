@@ -28,10 +28,10 @@ export default function RootLayout({
       appearance={{
         variables: {
           colorBackground: '#12141f',
-          colorInputBackground: '#0d0f18',
-          colorText: '#e8e6e0',
-          colorTextSecondary: '#9e9d98',
-          colorInputText: '#e8e6e0',
+          colorInput: '#0d0f18',
+          colorForeground: '#e8e6e0',
+          colorMutedForeground: '#9e9d98',
+          colorInputForeground: '#e8e6e0',
           colorPrimary: '#f97316',
           colorDanger: '#f85149',
           borderRadius: '0.5rem',
