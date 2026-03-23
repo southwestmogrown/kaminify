@@ -91,3 +91,21 @@ body::after {
 .cl-socialButtonsIconButtonText {
   color: #f97316 !important;
 }
+
+/* Clerk UserButton popover overrides */
+.cl-userButtonPopoverCard {
+  background-color: #12141f;
+  border: 1px solid rgba(255,255,255,0.07);
+}
+.cl-userButtonPopoverActionButton {
+  color: #e8e6e0 !important;
+}
+.cl-userButtonPopoverActionButtonText {
+  color: #e8e6e0 !important;
+}
+.cl-userButtonPopoverActionButtonIcon {
+  color: #9e9d98 !important;
+}
+.cl-userButtonPopoverActionButton:hover {
+  background-color: rgba(255,255,255,0.04) !important;
+}
