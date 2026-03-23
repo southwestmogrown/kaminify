@@ -18,10 +18,24 @@ const MODEL_OPTIONS = [
 ]
 
 const EXAMPLES = [
-  { label: 'Stripe + me', design: 'https://stripe.com', content: 'https://github.com/shanewilkey' },
-  { label: 'Stripe + GitHub', design: 'https://stripe.com', content: 'https://github.com' },
-  { label: 'Linear + GitHub', design: 'https://linear.app', content: 'https://github.com' },
-  { label: 'Vercel + GitHub', design: 'https://vercel.com', content: 'https://github.com' },
+  // 1-page
+  { label: 'Stripe → Tailwind',      design: 'https://stripe.com',       content: 'https://tailwindcss.com' },
+  { label: 'Vercel → Railway',       design: 'https://vercel.com',        content: 'https://railway.app' },
+  { label: 'Linear → Notion',        design: 'https://linear.app',        content: 'https://notion.so' },
+  // 2-page
+  { label: 'Resend → Postmark',      design: 'https://resend.com',        content: 'https://postmarkapp.com' },
+  { label: 'PlanetScale → Supabase', design: 'https://planetscale.com',   content: 'https://supabase.com' },
+  { label: 'Cal → SavvyCal',         design: 'https://cal.com',           content: 'https://savvycal.com' },
+  // 3-page
+  { label: 'Loom → Tella',           design: 'https://loom.com',          content: 'https://tella.tv' },
+  { label: 'Retool → Appsmith',      design: 'https://retool.com',        content: 'https://appsmith.com' },
+  { label: 'Framer → Webflow',       design: 'https://framer.com',        content: 'https://webflow.com' },
+]
+
+const HIDDEN_EXAMPLES = [
+  { label: 'OpenAI → Anthropic', design: 'https://openai.com',   content: 'https://anthropic.com' },
+  { label: 'Apple → Microsoft',  design: 'https://apple.com',    content: 'https://microsoft.com' },
+  { label: 'Netflix → Hulu',     design: 'https://netflix.com',  content: 'https://hulu.com' },
 ]
 
 function validateUrl(v: string): string {
@@ -62,6 +76,12 @@ export default function UrlInputPanel({ onClone, isRunning, disabled, model, onM
     setContentUrl(content)
     setDesignError('')
     setContentError('')
+  }
+
+  function pickRandom() {
+    const pool = [...EXAMPLES, ...HIDDEN_EXAMPLES]
+    const pick = pool[Math.floor(Math.random() * pool.length)]
+    applyExample(pick.design, pick.content)
   }
 
   return (
@@ -129,9 +149,26 @@ export default function UrlInputPanel({ onClone, isRunning, disabled, model, onM
 
       {/* Example pills */}
       <div className="flex flex-col gap-2">
-        <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-          Try an example →
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            Try an example →
+          </span>
+          <button
+            type="button"
+            onClick={pickRandom}
+            aria-label="Random example"
+            title="Pick a random pairing"
+            className="flex items-center justify-center w-6 h-6 rounded border transition-colors hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+            style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)', backgroundColor: 'transparent' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="16 3 21 3 21 8" />
+              <line x1="4" y1="20" x2="21" y2="3" />
+              <polyline points="21 16 21 21 16 21" />
+              <line x1="15" y1="15" x2="21" y2="21" />
+            </svg>
+          </button>
+        </div>
         <div className="flex gap-2 flex-wrap">
           {EXAMPLES.map((ex) => (
             <button
