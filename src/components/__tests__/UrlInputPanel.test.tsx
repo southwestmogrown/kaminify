@@ -78,9 +78,9 @@ describe('UrlInputPanel', () => {
 
   it('pill click populates both inputs', async () => {
     setup()
-    await userEvent.click(screen.getByRole('button', { name: 'Stripe + GitHub' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Stripe → Tailwind' }))
     expect(screen.getByLabelText('Design source URL')).toHaveValue('https://stripe.com')
-    expect(screen.getByLabelText('Content source URL')).toHaveValue('https://github.com')
+    expect(screen.getByLabelText('Content source URL')).toHaveValue('https://tailwindcss.com')
   })
 
   it('pill click clears submit errors', async () => {
@@ -89,7 +89,16 @@ describe('UrlInputPanel', () => {
     await userEvent.type(screen.getByLabelText('Content source URL'), 'https://example.com')
     await userEvent.click(screen.getByRole('button', { name: /clone/i }))
     expect(screen.getByText(/must start with http/i)).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Stripe + GitHub' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Stripe → Tailwind' }))
     expect(screen.queryByText(/must start with http/i)).not.toBeInTheDocument()
+  })
+
+  it('random button populates both inputs with valid URLs', async () => {
+    setup()
+    await userEvent.click(screen.getByRole('button', { name: /random example/i }))
+    const design = screen.getByLabelText('Design source URL') as HTMLInputElement
+    const content = screen.getByLabelText('Content source URL') as HTMLInputElement
+    expect(design.value).toMatch(/^https:\/\//)
+    expect(content.value).toMatch(/^https:\/\//)
   })
 })
