@@ -1,8 +1,8 @@
 import { clerkMiddleware } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
+import type { NextRequest, NextFetchEvent } from 'next/server'
 
-export default function middleware(request: NextRequest) {
+export default function middleware(request: NextRequest, event: NextFetchEvent) {
   if (request.nextUrl.pathname.startsWith('/__clerk')) {
     const clerkUrl = new URL(
       request.nextUrl.pathname.replace('/__clerk', '') + request.nextUrl.search,
@@ -11,7 +11,7 @@ export default function middleware(request: NextRequest) {
     return NextResponse.rewrite(clerkUrl)
   }
 
-  return clerkMiddleware()(request, {} as any)
+  return clerkMiddleware()(request, event)
 }
 
 export const config = {
