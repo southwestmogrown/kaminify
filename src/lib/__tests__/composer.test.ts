@@ -77,14 +77,52 @@ describe('composePage', () => {
     ).rejects.toThrow('Claude did not return valid HTML')
   })
 
-  it('truncates rawCss to 8000 characters', async () => {
+  it('truncates rawCss to 15000 characters', async () => {
     mockResponse(validHtml)
     const longCss = 'a'.repeat(20000)
     await composePage(makeDesign(longCss), makeContent(), makePages(), 'test-key', 'claude-haiku-4-5-20251001')
 
     const callArg = mockCreate.mock.calls[0][0]
     const userContent = JSON.parse(callArg.messages[0].content)
-    expect(userContent.designSystem.rawCss.length).toBeLessThanOrEqual(8000)
+    expect(userContent.designSystem.rawCss.length).toBeLessThanOrEqual(15000)
+  })
+
+  it('passes headingFontPairs, backgroundEffects, shadowValues, componentCss to composePage when present in designSystem', async () => {
+    mockResponse(validHtml)
+    const design = makeDesign()
+    design.headingFontPairs = [
+      { level: 'h1', fontFamily: 'Inter', fontSize: '48px' },
+      { level: 'h2', fontFamily: 'Inter', fontSize: '36px' },
+    ]
+    design.backgroundEffects = ['linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 'url(bg.png)']
+    design.shadowValues = ['0 4px 6px rgba(0,0,0,0.1)', '0 10px 15px rgba(0,0,0,0.1)']
+    design.componentCss = {
+      nav: 'nav { display: flex; }',
+      hero: '.hero { padding: 4rem; }',
+      footer: 'footer { background: #333; }',
+      card: '.card { border-radius: 8px; }',
+      button: '.btn { padding: 0.75rem 1.5rem; }',
+    }
+
+    await composePage(design, makeContent(), makePages(), 'test-key', 'claude-haiku-4-5-20251001')
+
+    const callArg = mockCreate.mock.calls[0][0]
+    const userContent = JSON.parse(callArg.messages[0].content)
+    expect(userContent.designSystem.headingFontPairs).toEqual(design.headingFontPairs)
+    expect(userContent.designSystem.backgroundEffects).toEqual(design.backgroundEffects)
+    expect(userContent.designSystem.shadowValues).toEqual(design.shadowValues)
+    expect(userContent.designSystem.componentCss).toEqual(design.componentCss)
+  })
+
+  it('does NOT strip :root blocks from rawCss', async () => {
+    mockResponse(validHtml)
+    const cssWithRoot = ':root { --color-primary: #667eea; --spacing: 8px; } body { color: red; }'
+    await composePage(makeDesign(cssWithRoot), makeContent(), makePages(), 'test-key', 'claude-haiku-4-5-20251001')
+
+    const callArg = mockCreate.mock.calls[0][0]
+    const userContent = JSON.parse(callArg.messages[0].content)
+    expect(userContent.designSystem.rawCss).toContain(':root')
+    expect(userContent.designSystem.rawCss).toContain('--color-primary')
   })
 
   it('includes all page slugs in the navigation array', async () => {

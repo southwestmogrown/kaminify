@@ -1,18 +1,26 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { DesignSystem, DiscoveredPage, PageContent } from './types'
 
-const RAW_CSS_LIMIT = 8000
+const RAW_CSS_LIMIT = 15000
 
 const SYSTEM_PROMPT = `You are an expert web developer. Given a design system and page content, build a polished, complete, self-contained HTML page.
 
 Hard constraints:
 - Output ONLY the HTML document starting with <!DOCTYPE html>. No markdown, no code fences, no explanation.
-- Fully self-contained: all CSS in a <style> block, no @import, no CDN links. If webFontUrl is provided in designSystem, inject exactly one <link rel="stylesheet" href="...webFontUrl..."> as the first element inside <head>; otherwise use system font stacks.
+- Fully self-contained: all CSS in a <style> block, no @import, no CDN links. If webFontUrl is provided in designSystem, inject exactly one <link rel="stylesheet" href="...webFontUrl..."> as the first element inside <head>; otherwise use headingFontPairs as the primary font source, with system font stacks as fallback only if headingFontPairs is empty.
 - Use only the text provided in pageContent — do not invent copy, statistics, or names.
 - Include navigation linking all pages; use the href field from each navigation entry as the anchor href attribute; mark currentSlug as active.
 - Do not apply decorative li::before or li::after pseudo-elements as a global rule — scope them to specific named component classes only.
 
-Apply the design tokens, color palette, component patterns, and layout feel from the design system faithfully. Make it responsive and production-quality. Write efficient, minimal CSS — avoid redundancy. The complete page must fit in a single response.`
+Apply the design tokens, color palette, component patterns, and layout feel from the design system faithfully. Make it responsive and production-quality. Write efficient, minimal CSS — avoid redundancy. The complete page must fit in a single response.
+
+Use the headingFontPairs to replicate the typographic hierarchy — apply each h1-h6 font-family and fontSize from the design system.
+
+Apply the backgroundEffects (gradients, images) to appropriate elements — hero sections, cards, page backgrounds.
+
+Apply the shadowValues to elements that have elevation — cards, modals, buttons with depth.
+
+The componentCss object contains the actual CSS rules for the nav, hero, footer, card, and button patterns — use these rules to style the corresponding HTML elements in your output.`
 
 export async function composePage(
   design: DesignSystem,
@@ -23,10 +31,9 @@ export async function composePage(
 ): Promise<string> {
   const client = new Anthropic({ apiKey })
 
-  // Strip :root blocks (already in cssVariables) then take first RAW_CSS_LIMIT chars of rules
-  const rawCssSnippet = design.rawCss
-    .replace(/:root\s*\{[^}]*\}/g, '')
-    .slice(0, RAW_CSS_LIMIT)
+  // Pass the full rawCss up to RAW_CSS_LIMIT — :root blocks are preserved because they
+  // may contain layout rules (custom properties, reset styles) needed for faithful cloning.
+  const rawCssSnippet = design.rawCss.slice(0, RAW_CSS_LIMIT)
 
   const userMessage = JSON.stringify({
     designSystem: {
@@ -36,6 +43,10 @@ export async function composePage(
       componentPatterns: design.componentPatterns,
       rawCss: rawCssSnippet,
       ...(design.webFontUrl ? { webFontUrl: design.webFontUrl } : {}),
+      ...(design.headingFontPairs ? { headingFontPairs: design.headingFontPairs } : {}),
+      ...(design.backgroundEffects ? { backgroundEffects: design.backgroundEffects } : {}),
+      ...(design.shadowValues ? { shadowValues: design.shadowValues } : {}),
+      ...(design.componentCss ? { componentCss: design.componentCss } : {}),
     },
     pageContent: {
       title: content.title,

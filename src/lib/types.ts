@@ -15,6 +15,13 @@ export interface ScrapedSite {
   jsRendered: boolean  // true if site appears to require JS for content
 }
 
+// A single heading level's font information
+export interface HeadingFontPair {
+  level: string       // "h1" | "h2" | ... | "h6"
+  fontFamily: string
+  fontSize: string
+}
+
 // Extracted design system from the design source
 export interface DesignSystem {
   cssVariables: string  // :root { } block(s) — highest-signal design tokens
@@ -22,6 +29,16 @@ export interface DesignSystem {
   fontStack: string[]
   spacing: string[]
   borderRadius: string[]
+  headingFontPairs?: HeadingFontPair[]  // h1-h6 font-family and font-size pairs
+  backgroundEffects?: string[]         // background-image, linear-gradient, radial-gradient values (max 10)
+  shadowValues?: string[]             // box-shadow, text-shadow values (max 10)
+  componentCss?: {                    // CSS rules matching each component snippet (max 1500 chars each)
+    nav: string
+    hero: string
+    footer: string
+    card: string
+    button: string
+  }
   componentPatterns: {
     nav: string     // raw HTML of the nav component ("" if not found)
     hero: string    // raw HTML of the hero section ("" if not found)
