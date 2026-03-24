@@ -42,10 +42,12 @@ export async function composePage(
 ): Promise<string> {
   const client = new Anthropic({ apiKey })
 
-  // Full rawCss is passed — no truncation. Design-site CSS variables are prepended
-  // so they take cascade priority over any content-site variables that share names.
+  // Design-site CSS variables are prepended so they take cascade priority over
+  // any content-site variables that share the same names.
   const cssOverrides = buildCssVariableOverrides(design.cssVariables)
-  const rawCssSnippet = cssOverrides + design.rawCss
+  // Cap rawCss to leave room for the rest of the prompt (~35K chars ≈ 8K tokens)
+  const MAX_RAW_CSS = 35000
+  const rawCssSnippet = cssOverrides + design.rawCss.slice(0, MAX_RAW_CSS)
 
   const userMessage = JSON.stringify({
     designSystem: {
