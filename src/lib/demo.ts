@@ -1,7 +1,6 @@
-import type { DemoSession, ByokSession } from './types'
+import type { DemoSession } from './types'
 
 const DEMO_KEY = 'kaminify_demo_session'
-const BYOK_KEY = 'kaminify_byok_session'
 
 function isServer(): boolean {
   return typeof window === 'undefined'
@@ -31,28 +30,4 @@ export function incrementDemoRun(): DemoSession {
   }
   sessionStorage.setItem(DEMO_KEY, JSON.stringify(updated))
   return updated
-}
-
-export function getByokSession(): ByokSession | null {
-  if (isServer()) return null
-  try {
-    const raw = sessionStorage.getItem(BYOK_KEY)
-    if (!raw) return null
-    return JSON.parse(raw) as ByokSession
-  } catch {
-    return null
-  }
-}
-
-export function saveByokSession(apiKey: string): ByokSession {
-  const session: ByokSession = { apiKey, addedAt: new Date().toISOString() }
-  if (!isServer()) {
-    sessionStorage.setItem(BYOK_KEY, JSON.stringify(session))
-  }
-  return session
-}
-
-export function clearByokSession(): void {
-  if (isServer()) return
-  sessionStorage.removeItem(BYOK_KEY)
 }

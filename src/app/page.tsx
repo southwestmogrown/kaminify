@@ -1,10 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useUser, useAuth } from '@clerk/nextjs'
-import { SignInButton, UserButton } from '@clerk/nextjs'
+import { useUser, useAuth, SignInButton, UserButton } from '@clerk/nextjs'
 import type { CloneEvent, ClonedPage, DiscoveredPage } from '@/lib/types'
-import { getDemoSession, incrementDemoRun, getByokSession, saveByokSession, clearByokSession } from '@/lib/demo'
+import { getDemoSession, incrementDemoRun } from '@/lib/demo'
 import UrlInputPanel from '@/components/UrlInputPanel'
 import ProgressFeed from '@/components/ProgressFeed'
 import PageTabBar from '@/components/PageTabBar'
@@ -31,6 +30,7 @@ export default function Home() {
   const [canRun, setCanRun] = useState(true)
   const [tier, setTier] = useState<'free' | 'pro'>('free')
   const [showApiKeyInput, setShowApiKeyInput] = useState(false)
+  const [showSignIn, setShowSignIn] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
   const [mobilePreview, setMobilePreview] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
@@ -63,8 +63,6 @@ export default function Home() {
           // Network error — fall back to client state
         }
       } else {
-        const byok = getByokSession()
-        if (byok) setApiKey(byok.apiKey)
         setRunsUsed(getDemoSession().runsUsed)
         setRunsLimit(DEMO_RUN_LIMIT)
         setCanRun(getDemoSession().runsUsed < DEMO_RUN_LIMIT)
@@ -76,6 +74,15 @@ export default function Home() {
   useEffect(() => {
     return () => { abortRef.current?.abort() }
   }, [])
+
+  // Trigger Clerk sign-in modal when anonymous user clicks "Sign in / Sign up"
+  const signInBtnRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (showSignIn) {
+      signInBtnRef.current?.click()
+      setShowSignIn(false)
+    }
+  }, [showSignIn])
 
   async function startClone(designUrl: string, contentUrl: string) {
     abortRef.current?.abort()
@@ -268,55 +275,44 @@ export default function Home() {
   }
 
   async function handleSaveApiKey(key: string) {
-    // Always persist to sessionStorage for cross-session persistence (especially for anonymous users)
-    saveByokSession(key)
+    const token = await getToken()
+    if (!token) return
+    await fetch('/api/me/api-key', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ apiKey: key }),
+    })
     setApiKey(key)
     setModel('claude-sonnet-4-6')
     setEffectiveModel('claude-sonnet-4-6')
-
-    // If signed in, also persist to server so it survives across devices
-    if (isSignedIn) {
-      const token = await getToken()
-      if (token) {
-        await fetch('/api/me/api-key', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ apiKey: key }),
-        })
-        // Re-fetch quota state now that key is persisted server-side
-        const meRes = await fetch('/api/me', { headers: { Authorization: `Bearer ${token}` } })
-        if (meRes.ok) {
-          const me = await meRes.json() as { runsUsed: number; canRun: boolean; tier: 'free' | 'pro' }
-          setRunsUsed(me.runsUsed)
-          setCanRun(me.canRun)
-          setTier(me.tier)
-        }
-      }
+    // Re-fetch quota state now that key is persisted server-side
+    const meRes = await fetch('/api/me', { headers: { Authorization: `Bearer ${token}` } })
+    if (meRes.ok) {
+      const me = await meRes.json() as { runsUsed: number; canRun: boolean; tier: 'free' | 'pro' }
+      setRunsUsed(me.runsUsed)
+      setCanRun(me.canRun)
+      setTier(me.tier)
     }
   }
 
   async function handleClearApiKey() {
-    clearByokSession()
+    const token = await getToken()
+    if (token) {
+      await fetch('/api/me/api-key', {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+    }
     setApiKey(null)
     setModel('claude-haiku-4-5-20251001')
     setEffectiveModel('claude-haiku-4-5-20251001')
-
-    // If signed in, also clear from server
-    if (isSignedIn) {
-      const token = await getToken()
-      if (token) {
-        await fetch('/api/me/api-key', {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        // Re-fetch quota state
-        const meRes = await fetch('/api/me', { headers: { Authorization: `Bearer ${token}` } })
-        if (meRes.ok) {
-          const me = await meRes.json() as { runsUsed: number; canRun: boolean; tier: 'free' | 'pro' }
-          setRunsUsed(me.runsUsed)
-          setCanRun(me.canRun)
-          setTier(me.tier)
-        }
+    if (token) {
+      const meRes = await fetch('/api/me', { headers: { Authorization: `Bearer ${token}` } })
+      if (meRes.ok) {
+        const me = await meRes.json() as { runsUsed: number; canRun: boolean; tier: 'free' | 'pro' }
+        setRunsUsed(me.runsUsed)
+        setCanRun(me.canRun)
+        setTier(me.tier)
       }
     }
   }
@@ -347,7 +343,7 @@ export default function Home() {
           Clone any site&apos;s design. Keep your content.
         </span>
         <div className="ml-auto flex items-center gap-3">
-          {apiKey && (
+          {isSignedIn && apiKey && (
             <button
               onClick={handleClearApiKey}
               className="text-xs"
@@ -390,7 +386,13 @@ export default function Home() {
         isSignedIn={!!isSignedIn}
         canRun={canRun}
         tier={tier}
-        onOpenApiKeyInput={() => setShowApiKeyInput(true)}
+        onOpenApiKeyInput={() => {
+          if (!isSignedIn) {
+            setShowSignIn(true)
+          } else {
+            setShowApiKeyInput(true)
+          }
+        }}
       />
 
       {!hasStarted && (
@@ -509,6 +511,11 @@ export default function Home() {
           onClose={() => setShowApiKeyInput(false)}
         />
       )}
+
+      {/* Hidden Clerk sign-in trigger for anonymous exhausted users */}
+      <SignInButton mode="modal">
+        <button ref={signInBtnRef} className="hidden" aria-hidden />
+      </SignInButton>
     </main>
   )
 }

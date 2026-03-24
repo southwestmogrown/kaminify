@@ -66,33 +66,26 @@ export default function DemoBanner({ runsUsed, runLimit, hasApiKey, isSignedIn, 
     )
   }
 
-  // Anonymous + has BYOK key
-  if (hasApiKey) {
-    return (
-      <div className={bannerClass} style={bannerStyle}>
-        <span style={{ color: 'var(--color-success)' }}>✓ Your API key active — unlimited runs</span>
-      </div>
-    )
-  }
-
-  // Anonymous, no BYOK key
+  // Anonymous users: demo runs only, no API key management
   const limitReached = runLimit !== undefined && runsUsed >= runLimit
 
   return (
     <div className={bannerClass} style={{ ...bannerStyle, color: 'var(--color-text-secondary)' }}>
       {limitReached ? (
-        <span style={{ color: 'var(--color-warning)' }}>Free runs used up</span>
+        <>
+          <span style={{ color: 'var(--color-warning)' }}>Free runs used up</span>
+          <span> · </span>
+          <button
+            onClick={onOpenApiKeyInput}
+            className="underline cursor-pointer"
+            style={{ color: 'var(--color-accent)' }}
+          >
+            Sign in / Sign up to continue →
+          </button>
+        </>
       ) : (
         <span>{runsUsed} of {runLimit} free runs used · No account required</span>
       )}
-      <span> · </span>
-      <button
-        onClick={onOpenApiKeyInput}
-        className="underline cursor-pointer"
-        style={{ color: 'var(--color-accent)' }}
-      >
-        {limitReached ? 'Add your API key to continue' : 'Add your own API key →'}
-      </button>
     </div>
   )
 }
