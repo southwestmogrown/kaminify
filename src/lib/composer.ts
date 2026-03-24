@@ -2,14 +2,14 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { DesignSystem, DiscoveredPage, PageContent } from './types'
 
 // Extract all :root { --var: value; } blocks from CSS as a single string.
-// These are prepended to rawCss so design-site variables take cascade priority
-// over any content-site variables that share the same names.
-function buildCssVariableOverrides(cssVariables: string, colorPalette: string[]): string {
+// Prepended to rawCss so design-site variables take cascade priority over any
+// content-site variables that share the same names.
+// Note: if rawCss itself contains :root {}, those definitions will override the
+// prepended ones (second :root wins in cascade) — this is intentional.
+function buildCssVariableOverrides(cssVariables: string): string {
   const vars = cssVariables.trim()
-  if (!vars && colorPalette.length === 0) return ''
-  const parts: string[] = []
-  if (vars) parts.push(`:root { ${vars} }`)
-  return parts.join('\n') + '\n'
+  if (!vars) return ''
+  return `:root { ${vars} }\n`
 }
 
 const SYSTEM_PROMPT = `You are an expert web developer. Given a design system and page content, build a polished, complete, self-contained HTML page.
@@ -44,7 +44,7 @@ export async function composePage(
 
   // Full rawCss is passed — no truncation. Design-site CSS variables are prepended
   // so they take cascade priority over any content-site variables that share names.
-  const cssOverrides = buildCssVariableOverrides(design.cssVariables, design.colorPalette)
+  const cssOverrides = buildCssVariableOverrides(design.cssVariables)
   const rawCssSnippet = cssOverrides + design.rawCss
 
   const userMessage = JSON.stringify({
