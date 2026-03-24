@@ -34,7 +34,7 @@
 - `extractHeadingFontPairs(css)` — h1–h6 font-family/font-size pairs give Claude explicit typographic hierarchy instead of guessing from an unordered fontStack array.
 - `extractBackgroundEffects(css)` — background-image/linear-gradient/radial-gradient values (max 10).
 - `extractShadowValues(css)` — box-shadow/text-shadow values (max 10).
-- `composer.ts` — stop stripping `:root {}` blocks from rawCss; increase RAW_CSS_LIMIT: 8000 → 15000; update SYSTEM_PROMPT to instruct Claude to use headingFontPairs for hierarchy, backgroundEffects for gradients, shadowValues for elevation, componentCss rules for styled elements.
+- `composer.ts` — stop stripping `:root {}` blocks from rawCss; add `buildCondensedCss()` smart truncation (strips :root, dedupes component rules, prioritizes layout/base, caps at 32K chars); update SYSTEM_PROMPT to instruct Claude to use headingFontPairs for hierarchy, backgroundEffects for gradients, shadowValues for elevation, componentCss rules for styled elements.
 - `types.ts` — new optional `DesignSystem` fields: `headingFontPairs`, `backgroundEffects`, `shadowValues`, `componentCss`.
 - `SKILL_design-cloning.md` — skill document capturing the information loss taxonomy, iteration loop, canonical test URL pairs, and hard rules for future prompt iteration.
 
@@ -44,7 +44,33 @@
 
 **Tests:** 19 new tests in extractor.test.ts, 4 new tests in composer.test.ts. 215 total passing.
 
-**Reviewer catch:** Code review flagged that the `BACKGROUND_IMAGE_RE` and `SHADOW_RE` regex `[^;}{]+` stopped at `)` (closing paren), truncating gradient and rgba() values. Fixed to `[^;]+` which correctly captures the full value including balanced parentheses.
+**Reviewer catches:**
+- `BACKGROUND_IMAGE_RE` and `SHADOW_RE` regex `[^;}{]+` stopped at `)` (closing paren), truncating gradient and rgba() values. Fixed to `[^;]+`.
+- `buildCssVariableOverrides(colorPalette)` had a misleading `colorPalette` parameter — accepted but never used. Removed the parameter.
+
+---
+
+### [feat/phase2-foundation] Phase 2 Foundation — Supabase + Stripe + Quota — 2026-03-23 [DONE]
+
+**Goal:** Lay the DB and library infrastructure for monetization. No user-facing changes — pure foundation for billing and quota enforcement branches.
+
+**What shipped:**
+- Supabase `users` table: `clerk_user_id`, `stripe_customer_id`, `stripe_subscription_id`, `subscription_status`, `runs_this_month`, `month_start`, timestamps
+- RLS: `users_select_own` policy — reads bound to Clerk JWT `sub` claim
+- SQL function: `increment_runs(p_clerk_user_id)` — atomic counter increment
+- `src/lib/supabase.ts`: `adminClient()` — service role, bypasses RLS, server-only
+- `src/lib/stripe.ts`: `stripe` singleton + `PRICE_ID` constant
+- `src/lib/quota.ts`: `getOrCreateUser`, `getQuotaStatus`, `incrementRun` — month reset on check-on-read
+- `src/lib/types.ts`: added `UserRecord` and `QuotaStatus` interfaces
+- 7 new quota unit tests (189 total passing)
+
+**Key decisions:**
+- Month reset is check-on-read (no cron) — compare stored `month_start` to current UTC month on every `getOrCreateUser` call
+- `FREE_RUN_LIMIT` reads from `DEMO_RUN_LIMIT` env (default 3)
+- Pro tier: `runsLimit: null` (unlimited)
+- All DB writes use service role; RLS only guards client reads
+
+**New deps:** `@supabase/supabase-js`, `@supabase/ssr`, `stripe`
 
 ---
 

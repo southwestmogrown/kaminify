@@ -100,3 +100,24 @@ export interface ByokSession {
   apiKey: string   // user's Anthropic key
   addedAt: string
 }
+
+// DB user record
+export interface UserRecord {
+  id: string
+  clerk_user_id: string
+  stripe_customer_id: string | null
+  stripe_subscription_id: string | null
+  subscription_status: 'free' | 'pro'
+  runs_this_month: number
+  month_start: string  // ISO date YYYY-MM-DD
+  created_at: string
+  updated_at: string
+}
+
+// Quota status returned by lib/quota.ts
+export interface QuotaStatus {
+  tier: 'anon' | 'free' | 'pro'
+  runsUsed: number
+  runsLimit: number | null  // null = unlimited
+  canRun: boolean
+}
