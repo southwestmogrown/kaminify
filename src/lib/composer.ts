@@ -1,18 +1,96 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { DesignSystem, DiscoveredPage, PageContent } from './types'
 
-const RAW_CSS_LIMIT = 8000
+// Regex to match a full CSS rule: selector { ... }
+const CSS_RULE_RE = /([^{]+)\{((?:[^{}]|\{[^{}]*\})*)\}/g
+
+// Keywords in a selector that indicate a high-priority base/layout rule.
+const LAYOUT_SELECTOR_KEYWORDS = [
+  'body', 'html', ':root', '*:not', '::before', '::after',
+  'grid', 'flex', 'container', 'wrapper', 'layout', 'container',
+  'section', 'main', 'header', 'footer', 'aside',
+]
+
+// Build a condensed rawCss that strips what we've already extracted as structured
+// fields, deduplicates component rules, and prioritizes layout/base rules.
+// This keeps Claude's prompt under the token limit while preserving the most useful CSS.
+function buildCondensedCss(
+  rawCss: string,
+  componentCss: { nav: string; hero: string; footer: string; card: string; button: string } | undefined,
+  maxChars: number,
+): string {
+  // Collect all selectors already captured in componentCss to avoid duplication
+  const knownSelectors = new Set<string>()
+  if (componentCss) {
+    for (const css of Object.values(componentCss)) {
+      let match
+      const re = new RegExp(CSS_RULE_RE.source, 'g')
+      while ((match = re.exec(css)) !== null) {
+        for (const sel of match[1].split(',')) {
+          knownSelectors.add(sel.trim())
+        }
+      }
+    }
+  }
+
+  // Strip :root blocks (they go into cssVariables field, not rawCss)
+  const strippedCss = rawCss.replace(/:root\s*\{[^{}]*\}/g, '')
+
+  // Rules to keep, in priority order
+  const highPriorityRules: string[] = []
+  const otherRules: string[] = []
+  let budget = maxChars
+
+  let match
+  const re = new RegExp(CSS_RULE_RE.source, 'g')
+  while ((match = re.exec(strippedCss)) !== null && budget > 0) {
+    const selector = match[1].trim()
+    const block = match[2]
+    const rule = selector + '{' + block + '}'
+
+    // Skip already-duplicated component selectors
+    const individualSels = selector.split(',').map(s => s.trim())
+    const isKnown = individualSels.every(s => knownSelectors.has(s))
+    if (isKnown) continue
+
+    // High-priority: base/layout selectors
+    const isLayout = LAYOUT_SELECTOR_KEYWORDS.some(kw => selector.includes(kw))
+    if (isLayout) {
+      if (rule.length <= budget) {
+        highPriorityRules.push(rule)
+        budget -= rule.length
+      }
+    } else {
+      if (rule.length <= budget) {
+        otherRules.push(rule)
+        budget -= rule.length
+      }
+    }
+  }
+
+  return [...highPriorityRules, ...otherRules].join(' ')
+}
 
 const SYSTEM_PROMPT = `You are an expert web developer. Given a design system and page content, build a polished, complete, self-contained HTML page.
 
 Hard constraints:
 - Output ONLY the HTML document starting with <!DOCTYPE html>. No markdown, no code fences, no explanation.
-- Fully self-contained: all CSS in a <style> block, no @import, no CDN links. If webFontUrl is provided in designSystem, inject exactly one <link rel="stylesheet" href="...webFontUrl..."> as the first element inside <head>; otherwise use system font stacks.
+- Fully self-contained: all CSS in a <style> block, no @import, no CDN links. If webFontUrl is provided in designSystem, inject exactly one <link rel="stylesheet" href="...webFontUrl..."> as the first element inside <head>; otherwise use headingFontPairs as the primary font source, with system font stacks as fallback only if headingFontPairs is empty.
 - Use only the text provided in pageContent — do not invent copy, statistics, or names.
 - Include navigation linking all pages; use the href field from each navigation entry as the anchor href attribute; mark currentSlug as active.
 - Do not apply decorative li::before or li::after pseudo-elements as a global rule — scope them to specific named component classes only.
 
-Apply the design tokens, color palette, component patterns, and layout feel from the design system faithfully. Make it responsive and production-quality. Write efficient, minimal CSS — avoid redundancy. The complete page must fit in a single response.`
+Apply the design tokens, color palette, component patterns, and layout feel from the design system faithfully. Make it responsive and production-quality. Write efficient, minimal CSS — avoid redundancy. The complete page must fit in a single response.
+
+Use the headingFontPairs to replicate the typographic hierarchy — apply each h1-h6 font-family and fontSize from the design system.
+
+Apply the backgroundEffects (gradients, images) to appropriate elements — hero sections, cards, page backgrounds.
+
+Apply the shadowValues to elements that have elevation — cards, modals, buttons with depth.
+
+The componentCss object contains the actual CSS rules for the nav, hero, footer, card, and button patterns — use these rules to style the corresponding HTML elements in your output.
+
+CRITICAL — Design fidelity: Do NOT invent, assume, or import any CSS class names, color values, font choices, or design tokens not explicitly provided in this message. Do NOT reference or replicate the visual design of any named brand or website (including the design source itself) based on your training knowledge — only use what is in the designSystem fields provided here.`
 
 export async function composePage(
   design: DesignSystem,
@@ -23,10 +101,15 @@ export async function composePage(
 ): Promise<string> {
   const client = new Anthropic({ apiKey })
 
-  // Strip :root blocks (already in cssVariables) then take first RAW_CSS_LIMIT chars of rules
-  const rawCssSnippet = design.rawCss
-    .replace(/:root\s*\{[^}]*\}/g, '')
-    .slice(0, RAW_CSS_LIMIT)
+  // Smart CSS truncation: dedupes component rules, prioritizes layout/base rules,
+  // strips already-extracted :root blocks. Keeps prompt under token limit.
+  // Note: cssVariables is passed as its own field — no need to prepend it to rawCss.
+  const MAX_RAW_CSS = 32000
+  const rawCssSnippet = buildCondensedCss(
+    design.rawCss,
+    design.componentCss,
+    MAX_RAW_CSS,
+  )
 
   const userMessage = JSON.stringify({
     designSystem: {
@@ -36,6 +119,10 @@ export async function composePage(
       componentPatterns: design.componentPatterns,
       rawCss: rawCssSnippet,
       ...(design.webFontUrl ? { webFontUrl: design.webFontUrl } : {}),
+      ...(design.headingFontPairs ? { headingFontPairs: design.headingFontPairs } : {}),
+      ...(design.backgroundEffects ? { backgroundEffects: design.backgroundEffects } : {}),
+      ...(design.shadowValues ? { shadowValues: design.shadowValues } : {}),
+      ...(design.componentCss ? { componentCss: design.componentCss } : {}),
     },
     pageContent: {
       title: content.title,
@@ -51,7 +138,7 @@ export async function composePage(
   })
 
   const maxTokens = (() => {
-    const val = parseInt(process.env.COMPOSER_MAX_TOKENS ?? '8192', 10)
+    const val = parseInt(process.env.COMPOSER_MAX_TOKENS ?? '16384', 10)
     return Number.isNaN(val) ? 8192 : val
   })()
 
