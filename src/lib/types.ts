@@ -13,6 +13,7 @@ export interface ScrapedSite {
   css: string      // all inline and linked CSS concatenated
   title: string
   jsRendered: boolean  // true if site appears to require JS for content
+  screenshot?: string  // base64 PNG screenshot captured after full render (for vision analysis)
 }
 
 // A single heading level's font information

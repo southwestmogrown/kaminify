@@ -179,7 +179,7 @@ describe('POST /api/compose', () => {
     ))
     await collectStream(res)
     expect(mockComposePage).toHaveBeenCalledWith(
-      expect.anything(), expect.anything(), expect.anything(), 'byok-key', expect.any(String)
+      expect.anything(), expect.anything(), expect.anything(), 'byok-key', expect.any(String), undefined
     )
   })
 
@@ -190,7 +190,7 @@ describe('POST /api/compose', () => {
     const res = await POST(makeRequest({ designSystem: fakeDesign, pageContent: fakeContent, allPages: fakePages }))
     await collectStream(res)
     expect(mockComposePage).toHaveBeenCalledWith(
-      expect.anything(), expect.anything(), expect.anything(), 'env-key', expect.any(String)
+      expect.anything(), expect.anything(), expect.anything(), 'env-key', expect.any(String), undefined
     )
   })
 
@@ -201,7 +201,7 @@ describe('POST /api/compose', () => {
     const res = await POST(makeRequest({ designSystem: fakeDesign, pageContent: fakeContent, allPages: fakePages }))
     await collectStream(res)
     expect(mockComposePage).toHaveBeenCalledWith(
-      expect.anything(), expect.anything(), expect.anything(), expect.any(String), 'claude-haiku-4-5-20251001'
+      expect.anything(), expect.anything(), expect.anything(), expect.any(String), 'claude-haiku-4-5-20251001', undefined
     )
   })
 
@@ -214,7 +214,21 @@ describe('POST /api/compose', () => {
     ))
     await collectStream(res)
     expect(mockComposePage).toHaveBeenCalledWith(
-      expect.anything(), expect.anything(), expect.anything(), expect.any(String), 'claude-sonnet-4-6'
+      expect.anything(), expect.anything(), expect.anything(), expect.any(String), 'claude-sonnet-4-6', undefined
+    )
+  })
+
+  it('passes screenshots and enforces Sonnet when screenshots are in body', async () => {
+    mockComposePage.mockResolvedValue(fakeHtml)
+    const screenshots = { design: 'base64img', content: 'base64img' }
+
+    const res = await POST(makeRequest(
+      { designSystem: fakeDesign, pageContent: fakeContent, allPages: fakePages, screenshots },
+      { 'x-api-key': 'byok-key' }
+    ))
+    await collectStream(res)
+    expect(mockComposePage).toHaveBeenCalledWith(
+      expect.anything(), expect.anything(), expect.anything(), expect.any(String), 'claude-sonnet-4-6', screenshots
     )
   })
 })

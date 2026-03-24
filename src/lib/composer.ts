@@ -92,12 +92,36 @@ The componentCss object contains the actual CSS rules for the nav, hero, footer,
 
 CRITICAL — Design fidelity: Do NOT invent, assume, or import any CSS class names, color values, font choices, or design tokens not explicitly provided in this message. Do NOT reference or replicate the visual design of any named brand or website (including the design source itself) based on your training knowledge — only use what is in the designSystem fields provided here.`
 
+const VISION_SYSTEM_PROMPT = `You are an expert web developer with visual design analysis skills. Given screenshots of a design donor website and a content donor website, build a polished, complete, self-contained HTML page inspired by the design donor's visual identity.
+
+Analyze the screenshots carefully:
+- Identify the dominant and accent colors (infer approximate hex values from what you see)
+- Note the typography: font sizes, weights, hierarchy
+- Observe the layout feel: spacing, padding, grid/flex patterns
+- Note any gradients, shadows, borders, or visual effects
+- Identify the overall mood: corporate, playful, minimal, bold, etc.
+
+Then build the page using the content from the second screenshot (the content donor), applying the visual design language from the first screenshot (the design donor).
+
+Hard constraints:
+- Output ONLY the HTML document starting with <!DOCTYPE html>. No markdown, no code fences, no explanation.
+- Fully self-contained: all CSS in a <style> block, no @import, no CDN links. If webFontUrl is provided in designSystem, inject exactly one <link rel="stylesheet" href="...webFontUrl..."> as the first element inside <head>; otherwise use the fonts visible in the screenshots as your primary source, with system font stacks as fallback.
+- Use only the text provided in pageContent — do not invent copy, statistics, or names.
+- Include navigation linking all pages; use the href field from each navigation entry as the anchor href attribute; mark currentSlug as active.
+- Do not apply decorative li::before or li::after pseudo-elements as a global rule — scope them to specific named component classes only.
+
+Apply colors, typography, spacing, and visual effects you observed in the design donor screenshot. Make it responsive and production-quality. The complete page must fit in a single response.`
+
 export async function composePage(
   design: DesignSystem,
   content: PageContent,
   allPages: DiscoveredPage[],
   apiKey: string,
-  model: string
+  model: string,
+  screenshots?: {
+    design: string   // base64 PNG
+    content: string  // base64 PNG
+  }
 ): Promise<string> {
   const client = new Anthropic({ apiKey })
 
@@ -111,42 +135,85 @@ export async function composePage(
     MAX_RAW_CSS,
   )
 
-  const userMessage = JSON.stringify({
-    designSystem: {
-      cssVariables: design.cssVariables,
-      colorPalette: design.colorPalette,
-      fontStack: design.fontStack,
-      componentPatterns: design.componentPatterns,
-      rawCss: rawCssSnippet,
-      ...(design.webFontUrl ? { webFontUrl: design.webFontUrl } : {}),
-      ...(design.headingFontPairs ? { headingFontPairs: design.headingFontPairs } : {}),
-      ...(design.backgroundEffects ? { backgroundEffects: design.backgroundEffects } : {}),
-      ...(design.shadowValues ? { shadowValues: design.shadowValues } : {}),
-      ...(design.componentCss ? { componentCss: design.componentCss } : {}),
-    },
-    pageContent: {
-      title: content.title,
-      headings: content.headings,
-      paragraphs: content.paragraphs,
-      listItems: content.listItems,
-      ctaTexts: content.ctaTexts,
-      imageAlts: content.imageAlts,
-      metaDescription: content.metaDescription,
-    },
-    navigation: allPages.map((p) => ({ slug: p.slug, label: p.navLabel, href: `${p.slug}.html` })),
-    currentSlug: content.slug,
-  })
+  const designSystemPayload = {
+    cssVariables: design.cssVariables,
+    colorPalette: design.colorPalette,
+    fontStack: design.fontStack,
+    componentPatterns: design.componentPatterns,
+    rawCss: rawCssSnippet,
+    ...(design.webFontUrl ? { webFontUrl: design.webFontUrl } : {}),
+    ...(design.headingFontPairs ? { headingFontPairs: design.headingFontPairs } : {}),
+    ...(design.backgroundEffects ? { backgroundEffects: design.backgroundEffects } : {}),
+    ...(design.shadowValues ? { shadowValues: design.shadowValues } : {}),
+    ...(design.componentCss ? { componentCss: design.componentCss } : {}),
+  }
+
+  const pageContentPayload = {
+    title: content.title,
+    headings: content.headings,
+    paragraphs: content.paragraphs,
+    listItems: content.listItems,
+    ctaTexts: content.ctaTexts,
+    imageAlts: content.imageAlts,
+    metaDescription: content.metaDescription,
+  }
+
+  const navigationPayload = allPages.map((p) => ({ slug: p.slug, label: p.navLabel, href: `${p.slug}.html` }))
 
   const maxTokens = (() => {
     const val = parseInt(process.env.COMPOSER_MAX_TOKENS ?? '16384', 10)
     return Number.isNaN(val) ? 8192 : val
   })()
 
+  const systemPrompt = screenshots ? VISION_SYSTEM_PROMPT : SYSTEM_PROMPT
+
+  // Vision path: screenshots provided → use Claude Sonnet with image blocks
+  // Text path: no screenshots → use existing Haiku path with JSON string
+  const messages: Anthropic.MessageParam[] = screenshots
+    ? [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: { type: 'base64', media_type: 'image/png', data: screenshots.design },
+            },
+            {
+              type: 'text',
+              text: 'Design donor website (above) — analyze its visual identity (colors, typography, layout, mood) and apply those design choices to the page you generate.',
+            },
+          ],
+        },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: { type: 'base64', media_type: 'image/png', data: screenshots.content },
+            },
+            {
+              type: 'text',
+              text: 'Content donor website (above) — extract the text content (headings, paragraphs, navigation items) from this page to populate the generated page.',
+            },
+          ],
+        },
+        {
+          role: 'user',
+          content: JSON.stringify({ designSystem: designSystemPayload, pageContent: pageContentPayload, navigation: navigationPayload, currentSlug: content.slug }),
+        },
+      ]
+    : [
+        {
+          role: 'user',
+          content: JSON.stringify({ designSystem: designSystemPayload, pageContent: pageContentPayload, navigation: navigationPayload, currentSlug: content.slug }),
+        },
+      ]
+
   const response = await client.messages.create({
     model,
     max_tokens: maxTokens,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: userMessage }],
+    system: systemPrompt,
+    messages,
   })
 
   if (response.stop_reason === 'max_tokens') {

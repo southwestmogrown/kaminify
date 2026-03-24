@@ -240,4 +240,88 @@ describe('composePage', () => {
       composePage(makeDesign(), makeContent(), makePages(), 'test-key', 'claude-haiku-4-5-20251001')
     ).rejects.toThrow('Output truncated')
   })
+
+  describe('vision path (screenshots provided)', () => {
+    const screenshots = {
+      design: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      content: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+    }
+
+    it('passes image blocks when screenshots are provided', async () => {
+      mockResponse(validHtml)
+      await composePage(
+        makeDesign(),
+        makeContent(),
+        makePages(),
+        'test-key',
+        'claude-sonnet-4-6',
+        screenshots
+      )
+
+      const callArg = mockCreate.mock.calls[0][0]
+      const messages = callArg.messages as Array<{ role: string; content: Array<{ type: string }> }>
+
+      // First message: design donor image
+      expect(messages[0].content[0]).toMatchObject({ type: 'image' })
+      expect(((messages[0].content[0] as unknown) as { source: { type: string; media_type: string; data: string } }).source.type).toBe('base64')
+      expect(((messages[0].content[0] as unknown) as { source: { type: string; media_type: string; data: string } }).source.media_type).toBe('image/png')
+      expect(((messages[0].content[0] as unknown) as { source: { type: string; media_type: string; data: string } }).source.data).toBe(screenshots.design)
+
+      // Second message: content donor image
+      expect(messages[1].content[0]).toMatchObject({ type: 'image' })
+      expect(((messages[1].content[0] as unknown) as { source: { type: string; media_type: string; data: string } }).source.data).toBe(screenshots.content)
+    })
+
+    it('uses VISION_SYSTEM_PROMPT when screenshots are provided', async () => {
+      mockResponse(validHtml)
+      await composePage(
+        makeDesign(),
+        makeContent(),
+        makePages(),
+        'test-key',
+        'claude-sonnet-4-6',
+        screenshots
+      )
+
+      const callArg = mockCreate.mock.calls[0][0]
+      expect(callArg.system).toContain('visual design analysis skills')
+      expect(callArg.system).toContain('Analyze the screenshots carefully')
+    })
+
+    it('passes design data as JSON string in third message block when screenshots provided', async () => {
+      mockResponse(validHtml)
+      const design = makeDesign()
+      const content = makeContent()
+      const pages = makePages()
+      await composePage(design, content, pages, 'test-key', 'claude-sonnet-4-6', screenshots)
+
+      const callArg = mockCreate.mock.calls[0][0]
+      const messages = callArg.messages as Array<{ role: string; content: string | Array<unknown> }>
+
+      // Third message has design+content as JSON string
+      const thirdMsg = messages[2] as { role: string; content: string }
+      const payload = JSON.parse(thirdMsg.content)
+      expect(payload.designSystem.cssVariables).toBe(design.cssVariables)
+      expect(payload.pageContent.title).toBe(content.title)
+      expect(payload.navigation).toHaveLength(2)
+    })
+
+    it('still works without screenshots (text-only path)', async () => {
+      mockResponse(validHtml)
+      const result = await composePage(
+        makeDesign(),
+        makeContent(),
+        makePages(),
+        'test-key',
+        'claude-haiku-4-5-20251001'
+      )
+      expect(result).toMatch(/^<!DOCTYPE html>/i)
+
+      const callArg = mockCreate.mock.calls[0][0]
+      // No image blocks — single text message
+      const msg = callArg.messages[0] as { role: string; content: string }
+      expect(msg.content).toBeTypeOf('string')
+      expect(JSON.parse(msg.content)).toHaveProperty('designSystem')
+    })
+  })
 })
