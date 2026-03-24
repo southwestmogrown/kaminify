@@ -74,7 +74,7 @@ export async function composePage(
   })
 
   const maxTokens = (() => {
-    const val = parseInt(process.env.COMPOSER_MAX_TOKENS ?? '8192', 10)
+    const val = parseInt(process.env.COMPOSER_MAX_TOKENS ?? '16384', 10)
     return Number.isNaN(val) ? 8192 : val
   })()
 
