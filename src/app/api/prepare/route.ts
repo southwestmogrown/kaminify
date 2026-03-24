@@ -1,10 +1,12 @@
+import { auth } from '@clerk/nextjs/server'
 import { scrapeSite } from '@/lib/scraper'
 import { scrapeWithBrowser } from '@/lib/browserScraper'
 import { discoverPages } from '@/lib/discover'
 import { extractDesignSystem, extractPageContent } from '@/lib/extractor'
+import { getQuotaStatus, incrementRun } from '@/lib/quota'
+import { adminClient } from '@/lib/supabase'
 import type { DesignSystem, DiscoveredPage, PageContent } from '@/lib/types'
 
-// TODO: share via a constants module
 const BYOK_MODELS = ['claude-haiku-4-5-20251001', 'claude-sonnet-4-6', 'claude-opus-4-6']
 
 interface PrepareResult {
@@ -13,8 +15,9 @@ interface PrepareResult {
   pageContents: PageContent[]
   warnings: string[]
   model: string
-  designScreenshot?: string  // base64 JPEG from browser render
-  contentScreenshot?: string // base64 JPEG from browser render
+  designScreenshot?: string
+  contentScreenshot?: string
+  userApiKey?: string   // returned so page.tsx can pass it to compose calls
 }
 
 export async function GET(request: Request): Promise<Response> {
@@ -26,15 +29,69 @@ export async function GET(request: Request): Promise<Response> {
     return new Response('Missing parameters', { status: 400 })
   }
 
-  const byokKey = request.headers.get('x-api-key')
-  const apiKey = byokKey ?? process.env.ANTHROPIC_API_KEY ?? ''
+  // --- Auth resolution ---
+  // Priority: 1) Clerk JWT (signed-in user), 2) x-api-key header (BYOK), 3) server key (demo)
+  const authHeader = request.headers.get('authorization')
+  const byokHeader = request.headers.get('x-api-key')
 
-  if (!apiKey) {
-    return new Response('Unauthorized', { status: 401 })
+  let signedInUserId: string | null = null
+  let isByok = false  // true when the user is running with their own key (explicit or stored)
+  let effectiveApiKey = ''
+  let userApiKeyToReturn: string | undefined
+
+  if (authHeader?.startsWith('Bearer ')) {
+    // Signed-in user — verify Clerk JWT
+    const { userId } = await auth()
+    signedInUserId = userId
+
+    if (signedInUserId) {
+      const quota = await getQuotaStatus(signedInUserId)
+      if (!quota.canRun) {
+        return new Response(
+          JSON.stringify({ error: 'Run limit reached. Add your own API key to continue.' }),
+          { status: 403, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      // Fetch the user's stored BYOK key if they have one
+      const { data: user } = await adminClient()
+        .from('users')
+        .select('api_key')
+        .eq('clerk_user_id', signedInUserId)
+        .single()
+
+      if (user?.api_key) {
+        effectiveApiKey = user.api_key
+        userApiKeyToReturn = user.api_key
+        isByok = true
+      } else {
+        effectiveApiKey = process.env.ANTHROPIC_API_KEY ?? ''
+      }
+    } else {
+      // Token provided but user not found — treat as unauthenticated
+      return new Response(JSON.stringify({ error: 'Invalid authentication token' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+  } else if (byokHeader) {
+    // BYOK mode — user's own explicit key
+    effectiveApiKey = byokHeader
+    isByok = true
+  } else {
+    // Server-side demo key (no auth)
+    effectiveApiKey = process.env.ANTHROPIC_API_KEY ?? ''
+  }
+
+  if (!effectiveApiKey) {
+    return new Response(JSON.stringify({ error: 'No API key available' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
 
   const requestedModel = searchParams.get('model') ?? ''
-  const model = byokKey
+  const model = isByok
     ? (BYOK_MODELS.includes(requestedModel) ? requestedModel : 'claude-sonnet-4-6')
     : 'claude-haiku-4-5-20251001'
 
@@ -58,7 +115,24 @@ export async function GET(request: Request): Promise<Response> {
     const designSystem = extractDesignSystem(designSite)
     const pageContents = pages.map((page) => extractPageContent(contentSite, page))
 
-    const result: PrepareResult = { designSystem, pages, pageContents, warnings, model, designScreenshot: designSite.screenshot, contentScreenshot: contentSite.screenshot }
+    // Increment run count for signed-in user after successful prepare
+    if (signedInUserId) {
+      await incrementRun(signedInUserId).catch((err) => {
+        console.error('Failed to increment run count:', err)
+      })
+    }
+
+    const result: PrepareResult = {
+      designSystem,
+      pages,
+      pageContents,
+      warnings,
+      model,
+      designScreenshot: designSite.screenshot,
+      contentScreenshot: contentSite.screenshot,
+      userApiKey: userApiKeyToReturn,
+    }
+
     return new Response(JSON.stringify(result), {
       headers: { 'Content-Type': 'application/json' },
     })

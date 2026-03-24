@@ -51,6 +51,7 @@ function validateUrl(v: string): string {
 }
 
 export default function UrlInputPanel({ onClone, isRunning, disabled, model, onModelChange, hasApiKey, effectiveModel }: UrlInputPanelProps) {
+  const modelLabel = { 'claude-haiku-4-5-20251001': 'Haiku', 'claude-sonnet-4-6': 'Sonnet', 'claude-opus-4-6': 'Opus' }[effectiveModel] ?? effectiveModel
   const [designUrl, setDesignUrl] = useState('')
   const [contentUrl, setContentUrl] = useState('')
   const [designError, setDesignError] = useState('')
@@ -221,7 +222,7 @@ export default function UrlInputPanel({ onClone, isRunning, disabled, model, onM
               }}
               title="Automatically upgraded based on site type"
             >
-              {effectiveModel === 'claude-haiku-4-5-20251001' ? 'Haiku' : effectiveModel === 'claude-sonnet-4-6' ? 'Sonnet' : 'Opus'}
+              {modelLabel}
             </span>
           )}
         </div>

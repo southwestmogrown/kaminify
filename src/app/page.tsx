@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useUser } from '@clerk/nextjs'
+import { useUser, useAuth } from '@clerk/nextjs'
 import { SignInButton, UserButton } from '@clerk/nextjs'
 import type { CloneEvent, ClonedPage, DiscoveredPage } from '@/lib/types'
 import { getDemoSession, incrementDemoRun, getByokSession, saveByokSession, clearByokSession } from '@/lib/demo'
@@ -16,6 +16,7 @@ const DEMO_RUN_LIMIT = parseInt(process.env.NEXT_PUBLIC_DEMO_RUN_LIMIT ?? '3')
 
 export default function Home() {
   const { isSignedIn } = useUser()
+  const { getToken } = useAuth()
   const [isRunning, setIsRunning] = useState(false)
   const [events, setEvents] = useState<CloneEvent[]>([])
   const [pages, setPages] = useState<ClonedPage[]>([])
@@ -26,16 +27,51 @@ export default function Home() {
   // The server may upgrade the model when screenshots are present (Haiku → Sonnet)
   const [effectiveModel, setEffectiveModel] = useState('claude-haiku-4-5-20251001')
   const [runsUsed, setRunsUsed] = useState(0)
+  const [runsLimit, setRunsLimit] = useState<number | null>(null)  // null = unlimited
+  const [canRun, setCanRun] = useState(true)
+  const [tier, setTier] = useState<'free' | 'pro'>('free')
   const [showApiKeyInput, setShowApiKeyInput] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
   const [mobilePreview, setMobilePreview] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
 
+  // Hydrate quota state from server for signed-in users; sessionStorage for anonymous
   useEffect(() => {
-    const byok = getByokSession()
-    if (byok) setApiKey(byok.apiKey)
-    setRunsUsed(getDemoSession().runsUsed)
-  }, [])
+    async function hydrate() {
+      if (isSignedIn) {
+        try {
+          const res = await fetch('/api/me')
+          if (res.ok) {
+            const data = await res.json() as {
+              runsUsed: number
+              runsLimit: number | null
+              canRun: boolean
+              tier: 'free' | 'pro'
+              hasApiKey: boolean
+              apiKey: string | null
+            }
+            setRunsUsed(data.runsUsed)
+            setRunsLimit(data.runsLimit)
+            setCanRun(data.canRun)
+            setTier(data.tier)
+            if (data.apiKey) {
+              setApiKey(data.apiKey)
+              setModel('claude-sonnet-4-6')
+            }
+          }
+        } catch {
+          // Network error — fall back to client state
+        }
+      } else {
+        const byok = getByokSession()
+        if (byok) setApiKey(byok.apiKey)
+        setRunsUsed(getDemoSession().runsUsed)
+        setRunsLimit(DEMO_RUN_LIMIT)
+        setCanRun(getDemoSession().runsUsed < DEMO_RUN_LIMIT)
+      }
+    }
+    hydrate()
+  }, [isSignedIn])
 
   useEffect(() => {
     return () => { abortRef.current?.abort() }
@@ -53,13 +89,20 @@ export default function Home() {
     setActiveSlug(null)
     setEffectiveModel(apiKey ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001')
 
+    // Anonymous users without BYOK key consume a demo run (server-enforced in /api/prepare)
     if (!apiKey && !isSignedIn) {
       const updated = incrementDemoRun()
       setRunsUsed(updated.runsUsed)
+      setCanRun(updated.runsUsed < DEMO_RUN_LIMIT)
     }
 
     const headers: Record<string, string> = {}
     if (apiKey) headers['x-api-key'] = apiKey
+    // Attach Clerk JWT for signed-in users so the server can identify them
+    if (isSignedIn) {
+      const token = await getToken()
+      if (token) headers['Authorization'] = `Bearer ${token}`
+    }
 
     function pushEvent(event: CloneEvent) {
       setEvents((prev) => [...prev, event])
@@ -132,9 +175,33 @@ export default function Home() {
         model: string
         designScreenshot?: string
         contentScreenshot?: string
+        userApiKey?: string   // the user's stored api_key (returned for signed-in users)
       }
-      const { designSystem, pages, pageContents, warnings, model: resolvedModel, designScreenshot, contentScreenshot } = prepData
+      const { designSystem, pages, pageContents, warnings, model: resolvedModel, designScreenshot, contentScreenshot, userApiKey } = prepData
       setEffectiveModel(resolvedModel)
+
+      // If prepare returned a stored user api_key, use it for all compose calls
+      if (userApiKey) {
+        setApiKey(userApiKey)
+        headers['x-api-key'] = userApiKey
+      }
+
+      // Signed-in users: re-fetch quota to reflect the server-side run increment
+      if (isSignedIn) {
+        try {
+          const meRes = await fetch('/api/me', {
+            headers: { Authorization: `Bearer ${await getToken()}` },
+          })
+          if (meRes.ok) {
+            const me = await meRes.json() as { runsUsed: number; canRun: boolean; tier: 'free' | 'pro' }
+            setRunsUsed(me.runsUsed)
+            setCanRun(me.canRun)
+            setTier(me.tier)
+          }
+        } catch {
+          // non-critical — quota stale but compose will still work
+        }
+      }
 
       for (const w of warnings) {
         pushEvent({ type: 'warning', message: w })
@@ -200,25 +267,68 @@ export default function Home() {
     }
   }
 
-  function handleSaveApiKey(key: string) {
+  async function handleSaveApiKey(key: string) {
+    // Always persist to sessionStorage for cross-session persistence (especially for anonymous users)
     saveByokSession(key)
     setApiKey(key)
     setModel('claude-sonnet-4-6')
     setEffectiveModel('claude-sonnet-4-6')
+
+    // If signed in, also persist to server so it survives across devices
+    if (isSignedIn) {
+      const token = await getToken()
+      if (token) {
+        await fetch('/api/me/api-key', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ apiKey: key }),
+        })
+        // Re-fetch quota state now that key is persisted server-side
+        const meRes = await fetch('/api/me', { headers: { Authorization: `Bearer ${token}` } })
+        if (meRes.ok) {
+          const me = await meRes.json() as { runsUsed: number; canRun: boolean; tier: 'free' | 'pro' }
+          setRunsUsed(me.runsUsed)
+          setCanRun(me.canRun)
+          setTier(me.tier)
+        }
+      }
+    }
   }
 
-  function handleClearApiKey() {
+  async function handleClearApiKey() {
     clearByokSession()
     setApiKey(null)
     setModel('claude-haiku-4-5-20251001')
     setEffectiveModel('claude-haiku-4-5-20251001')
+
+    // If signed in, also clear from server
+    if (isSignedIn) {
+      const token = await getToken()
+      if (token) {
+        await fetch('/api/me/api-key', {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        // Re-fetch quota state
+        const meRes = await fetch('/api/me', { headers: { Authorization: `Bearer ${token}` } })
+        if (meRes.ok) {
+          const me = await meRes.json() as { runsUsed: number; canRun: boolean; tier: 'free' | 'pro' }
+          setRunsUsed(me.runsUsed)
+          setCanRun(me.canRun)
+          setTier(me.tier)
+        }
+      }
+    }
   }
 
   const activePage = useMemo(
     () => pages.find((p) => p.slug === activeSlug) ?? null,
     [pages, activeSlug],
   )
-  const demoLimitReached = !apiKey && !isSignedIn && runsUsed >= DEMO_RUN_LIMIT
+  // Signed-in users: server-enforced limit. Anonymous: sessionStorage-based demo.
+  const demoLimitReached = isSignedIn
+    ? !canRun
+    : (!apiKey && runsUsed >= DEMO_RUN_LIMIT)
 
   return (
     <main
@@ -275,9 +385,11 @@ export default function Home() {
 
       <DemoBanner
         runsUsed={runsUsed}
-        runLimit={DEMO_RUN_LIMIT}
+        runLimit={runsLimit ?? undefined}
         hasApiKey={!!apiKey}
         isSignedIn={!!isSignedIn}
+        canRun={canRun}
+        tier={tier}
         onOpenApiKeyInput={() => setShowApiKeyInput(true)}
       />
 
