@@ -1,15 +1,74 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { DesignSystem, DiscoveredPage, PageContent } from './types'
 
-// Extract all :root { --var: value; } blocks from CSS as a single string.
-// Prepended to rawCss so design-site variables take cascade priority over any
-// content-site variables that share the same names.
-// Note: if rawCss itself contains :root {}, those definitions will override the
-// prepended ones (second :root wins in cascade) — this is intentional.
-function buildCssVariableOverrides(cssVariables: string): string {
-  const vars = cssVariables.trim()
-  if (!vars) return ''
-  return `:root { ${vars} }\n`
+// Regex to match a full CSS rule: selector { ... }
+const CSS_RULE_RE = /([^{]+)\{((?:[^{}]|\{[^{}]*\})*)\}/g
+
+// Keywords in a selector that indicate a high-priority base/layout rule.
+const LAYOUT_SELECTOR_KEYWORDS = [
+  'body', 'html', ':root', '*:not', '::before', '::after',
+  'grid', 'flex', 'container', 'wrapper', 'layout', 'container',
+  'section', 'main', 'header', 'footer', 'aside',
+]
+
+// Build a condensed rawCss that strips what we've already extracted as structured
+// fields, deduplicates component rules, and prioritizes layout/base rules.
+// This keeps Claude's prompt under the token limit while preserving the most useful CSS.
+function buildCondensedCss(
+  rawCss: string,
+  componentCss: { nav: string; hero: string; footer: string; card: string; button: string } | undefined,
+  maxChars: number,
+): string {
+  // Collect all selectors already captured in componentCss to avoid duplication
+  const knownSelectors = new Set<string>()
+  if (componentCss) {
+    for (const css of Object.values(componentCss)) {
+      let match
+      const re = new RegExp(CSS_RULE_RE.source, 'g')
+      while ((match = re.exec(css)) !== null) {
+        for (const sel of match[1].split(',')) {
+          knownSelectors.add(sel.trim())
+        }
+      }
+    }
+  }
+
+  // Strip :root blocks (they go into cssVariables field, not rawCss)
+  const strippedCss = rawCss.replace(/:root\s*\{[^{}]*\}/g, '')
+
+  // Rules to keep, in priority order
+  const highPriorityRules: string[] = []
+  const otherRules: string[] = []
+  let budget = maxChars
+
+  let match
+  const re = new RegExp(CSS_RULE_RE.source, 'g')
+  while ((match = re.exec(strippedCss)) !== null && budget > 0) {
+    const selector = match[1].trim()
+    const block = match[2]
+    const rule = selector + '{' + block + '}'
+
+    // Skip already-duplicated component selectors
+    const individualSels = selector.split(',').map(s => s.trim())
+    const isKnown = individualSels.every(s => knownSelectors.has(s))
+    if (isKnown) continue
+
+    // High-priority: base/layout selectors
+    const isLayout = LAYOUT_SELECTOR_KEYWORDS.some(kw => selector.includes(kw))
+    if (isLayout) {
+      if (rule.length <= budget) {
+        highPriorityRules.push(rule)
+        budget -= rule.length
+      }
+    } else {
+      if (rule.length <= budget) {
+        otherRules.push(rule)
+        budget -= rule.length
+      }
+    }
+  }
+
+  return [...highPriorityRules, ...otherRules].join(' ')
 }
 
 const SYSTEM_PROMPT = `You are an expert web developer. Given a design system and page content, build a polished, complete, self-contained HTML page.
@@ -42,12 +101,15 @@ export async function composePage(
 ): Promise<string> {
   const client = new Anthropic({ apiKey })
 
-  // Design-site CSS variables are prepended so they take cascade priority over
-  // any content-site variables that share the same names.
-  const cssOverrides = buildCssVariableOverrides(design.cssVariables)
-  // Cap rawCss to leave room for the rest of the prompt (~35K chars ≈ 8K tokens)
-  const MAX_RAW_CSS = 35000
-  const rawCssSnippet = cssOverrides + design.rawCss.slice(0, MAX_RAW_CSS)
+  // Smart CSS truncation: dedupes component rules, prioritizes layout/base rules,
+  // strips already-extracted :root blocks. Keeps prompt under token limit.
+  // Note: cssVariables is passed as its own field — no need to prepend it to rawCss.
+  const MAX_RAW_CSS = 32000
+  const rawCssSnippet = buildCondensedCss(
+    design.rawCss,
+    design.componentCss,
+    MAX_RAW_CSS,
+  )
 
   const userMessage = JSON.stringify({
     designSystem: {

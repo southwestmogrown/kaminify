@@ -77,19 +77,21 @@ describe('composePage', () => {
     ).rejects.toThrow('Claude did not return valid HTML')
   })
 
-  it('passes full rawCss with cssVariables prepended', async () => {
+  it('passes condensed rawCss with cssVariables as separate field', async () => {
     mockResponse(validHtml)
-    const longCss = 'a'.repeat(20000)
+    // Use valid CSS with high-priority base rules that will be kept
+    const baseRule = 'body { margin: 0; padding: 0; box-sizing: border-box; }'
+    const longCss = baseRule.repeat(400) // well over 32K budget
     const design = makeDesign(longCss)
-    design.cssVariables = '--primary: #ff0000;'
+    design.cssVariables = ':root { --primary: #ff0000; }'
     await composePage(design, makeContent(), makePages(), 'test-key', 'claude-haiku-4-5-20251001')
 
     const callArg = mockCreate.mock.calls[0][0]
     const userContent = JSON.parse(callArg.messages[0].content)
-    // cssOverrides (:root block) is prepended, then full rawCss
-    expect(userContent.designSystem.rawCss.startsWith(':root { --primary: #ff0000; }')).toBe(true)
-    // Full CSS is passed (no truncation)
-    expect(userContent.designSystem.rawCss.length).toBeGreaterThan(20000)
+    // cssVariables is a separate field (not prepended to rawCss)
+    expect(userContent.designSystem.cssVariables).toContain('--primary')
+    // High-priority base rules (body) are kept in condensed rawCss
+    expect(userContent.designSystem.rawCss).toContain('body')
   })
 
   it('passes headingFontPairs, backgroundEffects, shadowValues, componentCss to composePage when present in designSystem', async () => {
@@ -119,15 +121,23 @@ describe('composePage', () => {
     expect(userContent.designSystem.componentCss).toEqual(design.componentCss)
   })
 
-  it('does NOT strip :root blocks from rawCss', async () => {
+  it('strips :root blocks from rawCss (they live in cssVariables field)', async () => {
     mockResponse(validHtml)
     const cssWithRoot = ':root { --color-primary: #667eea; --spacing: 8px; } body { color: red; }'
-    await composePage(makeDesign(cssWithRoot), makeContent(), makePages(), 'test-key', 'claude-haiku-4-5-20251001')
+    const design = makeDesign(cssWithRoot)
+    // cssVariables is extracted separately in the real pipeline; set it here to match
+    design.cssVariables = ':root { --color-primary: #667eea; --spacing: 8px; }'
+    await composePage(design, makeContent(), makePages(), 'test-key', 'claude-haiku-4-5-20251001')
 
     const callArg = mockCreate.mock.calls[0][0]
     const userContent = JSON.parse(callArg.messages[0].content)
-    expect(userContent.designSystem.rawCss).toContain(':root')
-    expect(userContent.designSystem.rawCss).toContain('--color-primary')
+    // :root blocks are stripped from rawCss (they go into cssVariables)
+    expect(userContent.designSystem.rawCss).not.toContain(':root')
+    // The body rule is kept
+    expect(userContent.designSystem.rawCss).toContain('body')
+    // cssVariables field contains the :root block
+    expect(userContent.designSystem.cssVariables).toContain(':root')
+    expect(userContent.designSystem.cssVariables).toContain('--color-primary')
   })
 
   it('includes all page slugs in the navigation array', async () => {
