@@ -23,6 +23,8 @@ export default function Home() {
   const [hasStarted, setHasStarted] = useState(false)
   const [apiKey, setApiKey] = useState<string | null>(null)
   const [model, setModel] = useState('claude-haiku-4-5-20251001')
+  // The server may upgrade the model when screenshots are present (Haiku → Sonnet)
+  const [effectiveModel, setEffectiveModel] = useState('claude-haiku-4-5-20251001')
   const [runsUsed, setRunsUsed] = useState(0)
   const [showApiKeyInput, setShowApiKeyInput] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
@@ -49,6 +51,7 @@ export default function Home() {
     setEvents([])
     setPages([])
     setActiveSlug(null)
+    setEffectiveModel(apiKey ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001')
 
     if (!apiKey && !isSignedIn) {
       const updated = incrementDemoRun()
@@ -131,6 +134,7 @@ export default function Home() {
         contentScreenshot?: string
       }
       const { designSystem, pages, pageContents, warnings, model: resolvedModel, designScreenshot, contentScreenshot } = prepData
+      setEffectiveModel(resolvedModel)
 
       for (const w of warnings) {
         pushEvent({ type: 'warning', message: w })
@@ -200,12 +204,14 @@ export default function Home() {
     saveByokSession(key)
     setApiKey(key)
     setModel('claude-sonnet-4-6')
+    setEffectiveModel('claude-sonnet-4-6')
   }
 
   function handleClearApiKey() {
     clearByokSession()
     setApiKey(null)
     setModel('claude-haiku-4-5-20251001')
+    setEffectiveModel('claude-haiku-4-5-20251001')
   }
 
   const activePage = useMemo(
@@ -329,6 +335,7 @@ export default function Home() {
           model={model}
           onModelChange={setModel}
           hasApiKey={!!apiKey}
+          effectiveModel={effectiveModel}
         />
         {!isRunning && pages.length > 0 && (
           <div className="mt-4 flex justify-end">
