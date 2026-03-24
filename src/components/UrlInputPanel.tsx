@@ -9,6 +9,7 @@ interface UrlInputPanelProps {
   model: string
   onModelChange: (model: string) => void
   hasApiKey: boolean
+  effectiveModel: string
 }
 
 const MODEL_OPTIONS = [
@@ -49,7 +50,7 @@ function validateUrl(v: string): string {
   }
 }
 
-export default function UrlInputPanel({ onClone, isRunning, disabled, model, onModelChange, hasApiKey }: UrlInputPanelProps) {
+export default function UrlInputPanel({ onClone, isRunning, disabled, model, onModelChange, hasApiKey, effectiveModel }: UrlInputPanelProps) {
   const [designUrl, setDesignUrl] = useState('')
   const [contentUrl, setContentUrl] = useState('')
   const [designError, setDesignError] = useState('')
@@ -190,25 +191,40 @@ export default function UrlInputPanel({ onClone, isRunning, disabled, model, onM
 
       {/* Model selector + Clone button row */}
       <div className="flex gap-3 items-center">
-        <select
-          value={model}
-          onChange={(e) => onModelChange(e.target.value)}
-          disabled={!hasApiKey || isRunning}
-          className="px-3 py-2.5 rounded-md text-sm border focus:outline-none focus:border-[var(--color-accent)] disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{
-            backgroundColor: 'var(--color-bg-input)',
-            borderColor: 'var(--color-border)',
-            color: 'var(--color-text-primary)',
-          }}
-          aria-label="Model"
-        >
-          {hasApiKey
-            ? MODEL_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))
-            : <option value="claude-haiku-4-5-20251001">Haiku (fast)</option>
-          }
-        </select>
+        <div className="flex items-center gap-2">
+          <select
+            value={model}
+            onChange={(e) => onModelChange(e.target.value)}
+            disabled={!hasApiKey || isRunning}
+            className="px-3 py-2.5 rounded-md text-sm border focus:outline-none focus:border-[var(--color-accent)] disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              backgroundColor: 'var(--color-bg-input)',
+              borderColor: 'var(--color-border)',
+              color: 'var(--color-text-primary)',
+            }}
+            aria-label="Model"
+          >
+            {hasApiKey
+              ? MODEL_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))
+              : <option value="claude-haiku-4-5-20251001">Haiku (fast)</option>
+            }
+          </select>
+          {effectiveModel !== model && (
+            <span
+              className="text-xs px-2 py-1 rounded border"
+              style={{
+                backgroundColor: 'var(--color-accent-dim)',
+                borderColor: 'rgba(249,115,22,0.3)',
+                color: 'var(--color-accent-hover)',
+              }}
+              title="Automatically upgraded based on site type"
+            >
+              {effectiveModel === 'claude-haiku-4-5-20251001' ? 'Haiku' : effectiveModel === 'claude-sonnet-4-6' ? 'Sonnet' : 'Opus'}
+            </span>
+          )}
+        </div>
 
       <button
         type="button"
