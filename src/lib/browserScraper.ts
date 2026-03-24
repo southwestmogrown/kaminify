@@ -27,12 +27,23 @@ export async function scrapeWithBrowser(url: string): Promise<ScrapedSite> {
 
   try {
     await page.setUserAgent(USER_AGENT)
+    await page.setViewport({ width: 512, height: 384, deviceScaleFactor: 1 })
 
     try {
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15_000 })
+      await page.goto(url, { waitUntil: 'networkidle0', timeout: 15_000 })
     } catch (err) {
-      throw new Error(`Browser: failed to navigate to ${url} — ${err instanceof Error ? err.message : JSON.stringify(err)}`)
+      // Fallback: try load event if networkidle0 times out (SPA with periodic requests)
+      try {
+        await page.goto(url, { waitUntil: 'load', timeout: 15_000 })
+      } catch {
+        throw new Error(`Browser: failed to navigate to ${url} — ${err instanceof Error ? err.message : JSON.stringify(err)}`)
+      }
+      // Give React/JS frameworks a moment to finish client-side rendering
+      await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)))
     }
+
+    // Capture screenshot for vision analysis — JPEG/60 at 512×384 balances visual fidelity vs token cost
+    const screenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 60 }).catch(() => undefined)
 
     const html = await page.content()
     const $ = cheerio.load(html)
@@ -75,7 +86,7 @@ export async function scrapeWithBrowser(url: string): Promise<ScrapedSite> {
 
     $('script, noscript').remove()
 
-    return { url, html: $.html(), css, title, jsRendered: true }
+    return { url, html: $.html(), css, title, jsRendered: true, ...(screenshot && { screenshot }) }
   } finally {
     await page.close().catch((err) =>
       console.error('Browser: failed to close page —', err instanceof Error ? err.message : JSON.stringify(err))

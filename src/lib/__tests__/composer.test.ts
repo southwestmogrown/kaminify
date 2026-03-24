@@ -77,14 +77,67 @@ describe('composePage', () => {
     ).rejects.toThrow('Claude did not return valid HTML')
   })
 
-  it('truncates rawCss to 8000 characters', async () => {
+  it('passes condensed rawCss with cssVariables as separate field', async () => {
     mockResponse(validHtml)
-    const longCss = 'a'.repeat(20000)
-    await composePage(makeDesign(longCss), makeContent(), makePages(), 'test-key', 'claude-haiku-4-5-20251001')
+    // Use valid CSS with high-priority base rules that will be kept
+    const baseRule = 'body { margin: 0; padding: 0; box-sizing: border-box; }'
+    const longCss = baseRule.repeat(400) // well over 32K budget
+    const design = makeDesign(longCss)
+    design.cssVariables = ':root { --primary: #ff0000; }'
+    await composePage(design, makeContent(), makePages(), 'test-key', 'claude-haiku-4-5-20251001')
 
     const callArg = mockCreate.mock.calls[0][0]
     const userContent = JSON.parse(callArg.messages[0].content)
-    expect(userContent.designSystem.rawCss.length).toBeLessThanOrEqual(8000)
+    // cssVariables is a separate field (not prepended to rawCss)
+    expect(userContent.designSystem.cssVariables).toContain('--primary')
+    // High-priority base rules (body) are kept in condensed rawCss
+    expect(userContent.designSystem.rawCss).toContain('body')
+  })
+
+  it('passes headingFontPairs, backgroundEffects, shadowValues, componentCss to composePage when present in designSystem', async () => {
+    mockResponse(validHtml)
+    const design = makeDesign()
+    design.headingFontPairs = [
+      { level: 'h1', fontFamily: 'Inter', fontSize: '48px' },
+      { level: 'h2', fontFamily: 'Inter', fontSize: '36px' },
+    ]
+    design.backgroundEffects = ['linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 'url(bg.png)']
+    design.shadowValues = ['0 4px 6px rgba(0,0,0,0.1)', '0 10px 15px rgba(0,0,0,0.1)']
+    design.componentCss = {
+      nav: 'nav { display: flex; }',
+      hero: '.hero { padding: 4rem; }',
+      footer: 'footer { background: #333; }',
+      card: '.card { border-radius: 8px; }',
+      button: '.btn { padding: 0.75rem 1.5rem; }',
+    }
+
+    await composePage(design, makeContent(), makePages(), 'test-key', 'claude-haiku-4-5-20251001')
+
+    const callArg = mockCreate.mock.calls[0][0]
+    const userContent = JSON.parse(callArg.messages[0].content)
+    expect(userContent.designSystem.headingFontPairs).toEqual(design.headingFontPairs)
+    expect(userContent.designSystem.backgroundEffects).toEqual(design.backgroundEffects)
+    expect(userContent.designSystem.shadowValues).toEqual(design.shadowValues)
+    expect(userContent.designSystem.componentCss).toEqual(design.componentCss)
+  })
+
+  it('strips :root blocks from rawCss (they live in cssVariables field)', async () => {
+    mockResponse(validHtml)
+    const cssWithRoot = ':root { --color-primary: #667eea; --spacing: 8px; } body { color: red; }'
+    const design = makeDesign(cssWithRoot)
+    // cssVariables is extracted separately in the real pipeline; set it here to match
+    design.cssVariables = ':root { --color-primary: #667eea; --spacing: 8px; }'
+    await composePage(design, makeContent(), makePages(), 'test-key', 'claude-haiku-4-5-20251001')
+
+    const callArg = mockCreate.mock.calls[0][0]
+    const userContent = JSON.parse(callArg.messages[0].content)
+    // :root blocks are stripped from rawCss (they go into cssVariables)
+    expect(userContent.designSystem.rawCss).not.toContain(':root')
+    // The body rule is kept
+    expect(userContent.designSystem.rawCss).toContain('body')
+    // cssVariables field contains the :root block
+    expect(userContent.designSystem.cssVariables).toContain(':root')
+    expect(userContent.designSystem.cssVariables).toContain('--color-primary')
   })
 
   it('includes all page slugs in the navigation array', async () => {
@@ -186,5 +239,89 @@ describe('composePage', () => {
     await expect(
       composePage(makeDesign(), makeContent(), makePages(), 'test-key', 'claude-haiku-4-5-20251001')
     ).rejects.toThrow('Output truncated')
+  })
+
+  describe('vision path (screenshots provided)', () => {
+    const screenshots = {
+      design: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      content: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+    }
+
+    it('passes image blocks when screenshots are provided', async () => {
+      mockResponse(validHtml)
+      await composePage(
+        makeDesign(),
+        makeContent(),
+        makePages(),
+        'test-key',
+        'claude-sonnet-4-6',
+        screenshots
+      )
+
+      const callArg = mockCreate.mock.calls[0][0]
+      const messages = callArg.messages as Array<{ role: string; content: Array<{ type: string }> }>
+
+      // First message: design donor image
+      expect(messages[0].content[0]).toMatchObject({ type: 'image' })
+      expect(((messages[0].content[0] as unknown) as { source: { type: string; media_type: string; data: string } }).source.type).toBe('base64')
+      expect(((messages[0].content[0] as unknown) as { source: { type: string; media_type: string; data: string } }).source.media_type).toBe('image/jpeg')
+      expect(((messages[0].content[0] as unknown) as { source: { type: string; media_type: string; data: string } }).source.data).toBe(screenshots.design)
+
+      // Second message: content donor image
+      expect(messages[1].content[0]).toMatchObject({ type: 'image' })
+      expect(((messages[1].content[0] as unknown) as { source: { type: string; media_type: string; data: string } }).source.data).toBe(screenshots.content)
+    })
+
+    it('uses VISION_SYSTEM_PROMPT when screenshots are provided', async () => {
+      mockResponse(validHtml)
+      await composePage(
+        makeDesign(),
+        makeContent(),
+        makePages(),
+        'test-key',
+        'claude-sonnet-4-6',
+        screenshots
+      )
+
+      const callArg = mockCreate.mock.calls[0][0]
+      expect(callArg.system).toContain('visual design analysis skills')
+      expect(callArg.system).toContain('Analyze the screenshots carefully')
+    })
+
+    it('passes design data as JSON string in third message block when screenshots provided', async () => {
+      mockResponse(validHtml)
+      const design = makeDesign()
+      const content = makeContent()
+      const pages = makePages()
+      await composePage(design, content, pages, 'test-key', 'claude-sonnet-4-6', screenshots)
+
+      const callArg = mockCreate.mock.calls[0][0]
+      const messages = callArg.messages as Array<{ role: string; content: string | Array<unknown> }>
+
+      // Third message has design+content as JSON string
+      const thirdMsg = messages[2] as { role: string; content: string }
+      const payload = JSON.parse(thirdMsg.content)
+      expect(payload.designSystem.cssVariables).toBe(design.cssVariables)
+      expect(payload.pageContent.title).toBe(content.title)
+      expect(payload.navigation).toHaveLength(2)
+    })
+
+    it('still works without screenshots (text-only path)', async () => {
+      mockResponse(validHtml)
+      const result = await composePage(
+        makeDesign(),
+        makeContent(),
+        makePages(),
+        'test-key',
+        'claude-haiku-4-5-20251001'
+      )
+      expect(result).toMatch(/^<!DOCTYPE html>/i)
+
+      const callArg = mockCreate.mock.calls[0][0]
+      // No image blocks — single text message
+      const msg = callArg.messages[0] as { role: string; content: string }
+      expect(msg.content).toBeTypeOf('string')
+      expect(JSON.parse(msg.content)).toHaveProperty('designSystem')
+    })
   })
 })

@@ -15,6 +15,10 @@ interface ComposeBody {
   pageContent: PageContent
   allPages: DiscoveredPage[]
   model?: string
+  screenshots?: {
+    design: string   // base64 PNG
+    content: string  // base64 PNG
+  }
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -32,15 +36,19 @@ export async function POST(request: Request): Promise<Response> {
     return new Response('Bad Request', { status: 400 })
   }
 
-  const { designSystem, pageContent, allPages, model: requestedModel } = body
+  const { designSystem, pageContent, allPages, model: requestedModel, screenshots } = body
 
   if (!designSystem || !pageContent || !Array.isArray(allPages)) {
     return new Response('Bad Request', { status: 400 })
   }
 
-  const model = byokKey
-    ? (BYOK_MODELS.includes(requestedModel ?? '') ? requestedModel! : 'claude-sonnet-4-6')
-    : 'claude-haiku-4-5-20251001'
+  // If screenshots are provided, enforce Sonnet (Haiku can't read images)
+  // Otherwise fall back to the requested model or the default for the auth tier
+  const model = screenshots
+    ? 'claude-sonnet-4-6'
+    : byokKey
+      ? (BYOK_MODELS.includes(requestedModel ?? '') ? requestedModel! : 'claude-sonnet-4-6')
+      : 'claude-haiku-4-5-20251001'
 
   const navLabel = allPages.find((p) => p.slug === pageContent.slug)?.navLabel || pageContent.title || pageContent.slug
 
@@ -55,7 +63,7 @@ export async function POST(request: Request): Promise<Response> {
       }, 2000)
 
       try {
-        const html = await composePage(designSystem, pageContent, allPages, apiKey, model)
+        const html = await composePage(designSystem, pageContent, allPages, apiKey, model, screenshots)
         clearInterval(tick)
         const clonedPage: ClonedPage = {
           slug: pageContent.slug,

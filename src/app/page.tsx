@@ -127,8 +127,10 @@ export default function Home() {
         pageContents: unknown[]
         warnings: string[]
         model: string
+        designScreenshot?: string
+        contentScreenshot?: string
       }
-      const { designSystem, pages, pageContents, warnings, model: resolvedModel } = prepData
+      const { designSystem, pages, pageContents, warnings, model: resolvedModel, designScreenshot, contentScreenshot } = prepData
 
       for (const w of warnings) {
         pushEvent({ type: 'warning', message: w })
@@ -146,6 +148,10 @@ export default function Home() {
             pageContent: pageContents[i],
             allPages: pages,
             model: resolvedModel,
+            ...(designScreenshot &&
+              contentScreenshot && {
+                screenshots: { design: designScreenshot, content: contentScreenshot },
+              }),
           }),
           signal: controller.signal,
         })

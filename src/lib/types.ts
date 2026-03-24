@@ -13,6 +13,14 @@ export interface ScrapedSite {
   css: string      // all inline and linked CSS concatenated
   title: string
   jsRendered: boolean  // true if site appears to require JS for content
+  screenshot?: string  // base64 JPEG (60% quality, 512×384) captured after full render (for vision analysis)
+}
+
+// A single heading level's font information
+export interface HeadingFontPair {
+  level: string       // "h1" | "h2" | ... | "h6"
+  fontFamily: string
+  fontSize: string
 }
 
 // Extracted design system from the design source
@@ -22,6 +30,16 @@ export interface DesignSystem {
   fontStack: string[]
   spacing: string[]
   borderRadius: string[]
+  headingFontPairs?: HeadingFontPair[]  // h1-h6 font-family and font-size pairs
+  backgroundEffects?: string[]         // background-image, linear-gradient, radial-gradient values (max 10)
+  shadowValues?: string[]             // box-shadow, text-shadow values (max 10)
+  componentCss?: {                    // CSS rules matching each component snippet (max 1500 chars each)
+    nav: string
+    hero: string
+    footer: string
+    card: string
+    button: string
+  }
   componentPatterns: {
     nav: string     // raw HTML of the nav component ("" if not found)
     hero: string    // raw HTML of the hero section ("" if not found)
@@ -82,4 +100,25 @@ export interface DemoSession {
 export interface ByokSession {
   apiKey: string   // user's Anthropic key
   addedAt: string
+}
+
+// DB user record
+export interface UserRecord {
+  id: string
+  clerk_user_id: string
+  stripe_customer_id: string | null
+  stripe_subscription_id: string | null
+  subscription_status: 'free' | 'pro'
+  runs_this_month: number
+  month_start: string  // ISO date YYYY-MM-DD
+  created_at: string
+  updated_at: string
+}
+
+// Quota status returned by lib/quota.ts
+export interface QuotaStatus {
+  tier: 'anon' | 'free' | 'pro'
+  runsUsed: number
+  runsLimit: number | null  // null = unlimited
+  canRun: boolean
 }

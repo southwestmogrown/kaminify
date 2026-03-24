@@ -12,6 +12,9 @@ const MAX_PARAGRAPHS = 20
 const MAX_LIST_ITEMS = 25
 const MAX_CTA_TEXTS = 8
 const MAX_IMAGE_ALTS = 12
+const MAX_BACKGROUND_EFFECTS = 10
+const MAX_SHADOW_VALUES = 10
+const MAX_COMPONENT_CSS = 1500
 
 const HEX_RE = /#([0-9a-fA-F]{3,8})\b/g
 const RGB_RE = /rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+[^)]*\)/g
@@ -86,7 +89,219 @@ function extractBorderRadius(css: string): string[] {
   return [...found].slice(0, 10)
 }
 
-const GOOGLE_FONT_IMPORT_RE = /(?:@import\s+url\(['"]?|@import\s+['"])(https:\/\/fonts\.googleapis\.com[^'")\s]+)/
+export function extractHeadingFontPairs(css: string): Array<{ level: string; fontFamily: string; fontSize: string }> {
+  const pairs: Array<{ level: string; fontFamily: string; fontSize: string }> = []
+  const re = /^(h[1-6])\s*\{([^}]*)\}/gm
+  let match
+  while ((match = re.exec(css)) !== null) {
+    const level = match[1]
+    const block = match[2]
+    const fontFamilyMatch = block.match(/font-family\s*:\s*([^;}{]+)/)
+    const fontSizeMatch = block.match(/font-size\s*:\s*([^;}{]+)/)
+    if (fontFamilyMatch || fontSizeMatch) {
+      pairs.push({
+        level,
+        fontFamily: fontFamilyMatch ? fontFamilyMatch[1].split(',')[0].trim().replace(/['"]/g, '') : '',
+        fontSize: fontSizeMatch ? fontSizeMatch[1].trim() : '',
+      })
+    }
+  }
+  return pairs
+}
+
+const BACKGROUND_IMAGE_RE = /background(?:-image)?\s*:\s*([^;]+)/g
+
+export function extractBackgroundEffects(css: string): string[] {
+  const found = new Set<string>()
+  for (const match of css.matchAll(BACKGROUND_IMAGE_RE)) {
+    const value = match[1].trim()
+    if (value !== 'none' && value !== '') {
+      found.add(value)
+    }
+  }
+  return [...found].slice(0, MAX_BACKGROUND_EFFECTS)
+}
+
+const SHADOW_RE = /(?:box-shadow|text-shadow)\s*:\s*([^;]+)/g
+
+export function extractShadowValues(css: string): string[] {
+  const found = new Set<string>()
+  for (const match of css.matchAll(SHADOW_RE)) {
+    const value = match[1].trim()
+    if (value !== 'none' && value !== '') {
+      found.add(value)
+    }
+  }
+  return [...found].slice(0, MAX_SHADOW_VALUES)
+}
+
+/**
+ * Helper function to check if a CSS selector matches any of the HTML selectors.
+ */
+function selectorMatchesCssSelector(selector: string, htmlSelectors: Set<string>): boolean {
+  // For attribute selectors like [class*="btn"], extract attr name and value
+  if (selector.includes('[')) {
+    const attrMatch = selector.match(/\[[^\]=]+([*^$|~]?=)\s*["']?([^"'\]]+)["']?\s*\]/)
+    if (attrMatch) {
+      const attrValue = attrMatch[2]
+      for (const s of htmlSelectors) {
+        // For class selectors like .btn, check if the attrValue is contained
+        const simpleSel = s.replace('.', '').replace('#', '')
+        const matchesValue = s.includes(attrValue) || attrValue.includes(simpleSel)
+        if (matchesValue) return true
+      }
+    }
+  }
+
+  // Escape regex special chars for literal matching
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  try {
+    const re = new RegExp(`^${escaped}$|^${escaped}(?=[.,:#])|${escaped}$`)
+    for (const s of htmlSelectors) {
+      if (re.test(s)) return true
+    }
+  } catch {
+    // Invalid regex, try literal match
+  }
+
+  // Fallback: literal match
+  for (const s of htmlSelectors) {
+    if (s === selector || selector === '*' || selector.includes(s) || s.includes(selector)) {
+      return true
+    }
+  }
+  return false
+}
+
+/**
+ * Extract all CSS rules matching elements in the given HTML snippet.
+ * Handles class selectors, id selectors, tag selectors, compound selectors,
+ * pseudo-classes, pseudo-elements, and attribute selectors.
+ */
+export function extractComponentCss(css: string, html: string): string {
+  if (!html || !css) return ''
+
+  const $ = cheerio.load(html)
+  const selectors = new Set<string>()
+
+  // Collect all class names from the HTML
+  $('[class]').each((_, el) => {
+    const classes = ($(el).attr('class') ?? '').split(/\s+/)
+    for (const cls of classes) {
+      if (cls) selectors.add('.' + cls)
+    }
+  })
+
+  // Collect all IDs from the HTML
+  $('[id]').each((_, el) => {
+    const id = ($(el).attr('id') ?? '').trim()
+    if (id) selectors.add('#' + id)
+  })
+
+  // Collect all tag names from the HTML
+  $('*').each((_, el) => {
+    const tagName = (el as { tagName?: string }).tagName?.toLowerCase()
+    if (tagName) selectors.add(tagName)
+  })
+
+  if (selectors.size === 0) return ''
+
+  const matchingRules: string[] = []
+
+  function processCssBlock(cssStr: string) {
+    const len = cssStr.length
+    let idx = 0
+
+    while (idx < len) {
+      // Handle @-rules — recursively process their content too
+      if (cssStr[idx] === '@') {
+        // Skip to opening brace of @-rule
+        while (idx < len && cssStr[idx] !== '{') idx++
+        if (idx >= len) break
+        const atBlockStart = idx + 1
+        // Skip the { and find the matching }
+        let depth = 0
+        while (idx < len) {
+          if (cssStr[idx] === '{') { depth++; idx++; }
+          else if (cssStr[idx] === '}') {
+            depth--
+            if (depth === 0) {
+              // Extract and recursively process content inside the @-rule
+              const atBlockContent = cssStr.slice(atBlockStart, idx)
+              processCssBlock(atBlockContent)
+              idx++
+              break
+            }
+            idx++
+          } else {
+            idx++
+          }
+        }
+        continue
+      }
+
+      // Find next opening brace
+      const bracePos = cssStr.indexOf('{', idx)
+      if (bracePos === -1) break
+
+      const possibleSelector = cssStr.slice(idx, bracePos).trim()
+      if (possibleSelector) {
+        // Split on comma for multiple selectors (e.g., ".a, .b { }")
+        const individualSelectors = possibleSelector.split(',').map(s => s.trim())
+        let anyMatch = false
+
+        for (const sel of individualSelectors) {
+          // Strip pseudo-elements/classes for matching
+          const baseSel = sel.split(/::?/)[0]
+          if (!baseSel) continue
+
+          if (selectorMatchesCssSelector(baseSel, selectors)) {
+            anyMatch = true
+            break
+          }
+        }
+
+        if (anyMatch) {
+          // Extract the full rule block
+          let depth = 0
+          const blockStart = bracePos
+          while (idx < len) {
+            if (cssStr[idx] === '{') depth++
+            else if (cssStr[idx] === '}') {
+              depth--
+              if (depth === 0) {
+                matchingRules.push(possibleSelector + cssStr.slice(blockStart, idx + 1))
+                idx++
+                break
+              }
+            }
+            idx++
+          }
+          continue
+        }
+      }
+
+      // Skip to next selector (move past the {...} block)
+      let depth = 0
+      while (idx < len) {
+        if (cssStr[idx] === '{') { depth++; idx++; break }
+        idx++
+      }
+      while (idx < len && depth > 0) {
+        if (cssStr[idx] === '{') depth++
+        else if (cssStr[idx] === '}') depth--
+        idx++
+      }
+    }
+  }
+
+  processCssBlock(css)
+
+  const combined = matchingRules.join(' ')
+  return combined.length > MAX_COMPONENT_CSS ? combined.slice(0, MAX_COMPONENT_CSS) : combined
+}
+
+const GOOGLE_FONT_IMPORT_RE =/(?:@import\s+url\(['"]?|@import\s+['"])(https:\/\/fonts\.googleapis\.com[^'")\s]+)/
 
 function extractWebFontUrl(html: string, css: string): string | undefined {
   // Prefer the <link> tag in HTML — canonical URL before the scraper fetches it
@@ -154,6 +369,16 @@ export function extractDesignSystem(site: ScrapedSite): DesignSystem {
     fontStack: extractFonts(site.css),
     spacing: extractSpacing(site.css),
     borderRadius: extractBorderRadius(site.css),
+    headingFontPairs: extractHeadingFontPairs(site.css),
+    backgroundEffects: extractBackgroundEffects(site.css),
+    shadowValues: extractShadowValues(site.css),
+    componentCss: {
+      nav: extractComponentCss(site.css, nav),
+      hero: extractComponentCss(site.css, hero),
+      footer: extractComponentCss(site.css, footer),
+      card: extractComponentCss(site.css, card),
+      button: extractComponentCss(site.css, button),
+    },
     componentPatterns: { nav, hero, footer, card, button },
     rawCss: site.css,
     ...(webFontUrl ? { webFontUrl } : {}),

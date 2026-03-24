@@ -13,6 +13,8 @@ interface PrepareResult {
   pageContents: PageContent[]
   warnings: string[]
   model: string
+  designScreenshot?: string  // base64 JPEG from browser render
+  contentScreenshot?: string // base64 JPEG from browser render
 }
 
 export async function GET(request: Request): Promise<Response> {
@@ -56,7 +58,7 @@ export async function GET(request: Request): Promise<Response> {
     const designSystem = extractDesignSystem(designSite)
     const pageContents = pages.map((page) => extractPageContent(contentSite, page))
 
-    const result: PrepareResult = { designSystem, pages, pageContents, warnings, model }
+    const result: PrepareResult = { designSystem, pages, pageContents, warnings, model, designScreenshot: designSite.screenshot, contentScreenshot: contentSite.screenshot }
     return new Response(JSON.stringify(result), {
       headers: { 'Content-Type': 'application/json' },
     })
