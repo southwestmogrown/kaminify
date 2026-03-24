@@ -13,8 +13,8 @@ interface PrepareResult {
   pageContents: PageContent[]
   warnings: string[]
   model: string
-  designScreenshot?: string  // base64 PNG from browser render
-  contentScreenshot?: string // base64 PNG from browser render
+  designScreenshot?: string  // base64 JPEG from browser render
+  contentScreenshot?: string // base64 JPEG from browser render
 }
 
 export async function GET(request: Request): Promise<Response> {

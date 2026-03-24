@@ -264,7 +264,7 @@ describe('composePage', () => {
       // First message: design donor image
       expect(messages[0].content[0]).toMatchObject({ type: 'image' })
       expect(((messages[0].content[0] as unknown) as { source: { type: string; media_type: string; data: string } }).source.type).toBe('base64')
-      expect(((messages[0].content[0] as unknown) as { source: { type: string; media_type: string; data: string } }).source.media_type).toBe('image/png')
+      expect(((messages[0].content[0] as unknown) as { source: { type: string; media_type: string; data: string } }).source.media_type).toBe('image/jpeg')
       expect(((messages[0].content[0] as unknown) as { source: { type: string; media_type: string; data: string } }).source.data).toBe(screenshots.design)
 
       // Second message: content donor image

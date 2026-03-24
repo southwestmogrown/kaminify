@@ -96,7 +96,7 @@ describe('scrapeWithBrowser', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeResponse('')))
     const result = await scrapeWithBrowser('https://example.com')
     expect(result.screenshot).toBe('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==')
-    expect(mockScreenshot).toHaveBeenCalledWith({ encoding: 'base64', type: 'png' })
+    expect(mockScreenshot).toHaveBeenCalledWith({ encoding: 'base64', type: 'jpeg', quality: 60 })
   })
 
   it('extracts inline style content', async () => {

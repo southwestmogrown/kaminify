@@ -27,7 +27,7 @@ export async function scrapeWithBrowser(url: string): Promise<ScrapedSite> {
 
   try {
     await page.setUserAgent(USER_AGENT)
-    await page.setViewport({ width: 1024, height: 768, deviceScaleFactor: 1 })
+    await page.setViewport({ width: 512, height: 384, deviceScaleFactor: 1 })
 
     try {
       await page.goto(url, { waitUntil: 'networkidle0', timeout: 15_000 })
@@ -42,8 +42,8 @@ export async function scrapeWithBrowser(url: string): Promise<ScrapedSite> {
       await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)))
     }
 
-    // Capture screenshot for vision analysis — must happen after full render
-    const screenshot = await page.screenshot({ encoding: 'base64', type: 'png' }).catch(() => undefined)
+    // Capture screenshot for vision analysis — JPEG/60 at 512×384 balances visual fidelity vs token cost
+    const screenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 60 }).catch(() => undefined)
 
     const html = await page.content()
     const $ = cheerio.load(html)

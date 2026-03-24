@@ -176,7 +176,7 @@ export async function composePage(
           content: [
             {
               type: 'image',
-              source: { type: 'base64', media_type: 'image/png', data: screenshots.design },
+              source: { type: 'base64', media_type: 'image/jpeg', data: screenshots.design },
             },
             {
               type: 'text',
@@ -189,7 +189,7 @@ export async function composePage(
           content: [
             {
               type: 'image',
-              source: { type: 'base64', media_type: 'image/png', data: screenshots.content },
+              source: { type: 'base64', media_type: 'image/jpeg', data: screenshots.content },
             },
             {
               type: 'text',
