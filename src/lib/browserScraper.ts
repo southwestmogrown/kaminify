@@ -29,9 +29,16 @@ export async function scrapeWithBrowser(url: string): Promise<ScrapedSite> {
     await page.setUserAgent(USER_AGENT)
 
     try {
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15_000 })
+      await page.goto(url, { waitUntil: 'networkidle0', timeout: 15_000 })
     } catch (err) {
-      throw new Error(`Browser: failed to navigate to ${url} — ${err instanceof Error ? err.message : JSON.stringify(err)}`)
+      // Fallback: try load event if networkidle0 times out (SPA with periodic requests)
+      try {
+        await page.goto(url, { waitUntil: 'load', timeout: 15_000 })
+      } catch (_loadErr) {
+        throw new Error(`Browser: failed to navigate to ${url} — ${err instanceof Error ? err.message : JSON.stringify(err)}`)
+      }
+      // Give React/JS frameworks a moment to finish client-side rendering
+      await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)))
     }
 
     const html = await page.content()

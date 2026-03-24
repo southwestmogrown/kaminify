@@ -166,16 +166,56 @@ describe('scrapeWithBrowser', () => {
     expect(new URL(calledWith.browserWSEndpoint).pathname).toBe('/chromium')
   })
 
+  it('falls back to load + evaluate delay when networkidle0 times out', async () => {
+    const html = '<html><head><title>SPA Rendered</title></head><body><div id="root"><p>React content loaded</p></div></body></html>'
+    const connectMock = puppeteer.connect as ReturnType<typeof vi.fn>
+    let gotoCallCount = 0
+    const mockGoto = vi.fn().mockImplementation(() => {
+      gotoCallCount++
+      if (gotoCallCount === 1) {
+        // First call (networkidle0) — simulate timeout
+        const err = new Error('Navigation timeout')
+        err.name = 'TimeoutError'
+        throw err
+      }
+      // Second call (load) — succeeds
+      return Promise.resolve(undefined)
+    })
+    const mockEvaluate = vi.fn().mockResolvedValue(undefined)
+    connectMock.mockResolvedValueOnce({
+      newPage: vi.fn().mockResolvedValue({
+        setUserAgent: vi.fn().mockResolvedValue(undefined),
+        goto: mockGoto,
+        content: vi.fn().mockResolvedValue(html),
+        close: vi.fn().mockResolvedValue(undefined),
+        evaluate: mockEvaluate,
+      }),
+      disconnect: vi.fn().mockResolvedValue(undefined),
+    })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeResponse('')))
+    const result = await scrapeWithBrowser('https://example.com')
+    expect(result.title).toBe('SPA Rendered')
+    expect(result.html).toContain('React content loaded')
+    expect(mockEvaluate).toHaveBeenCalled()
+  })
+
   it('disconnects browser even when page.goto throws', async () => {
     const mockClose = vi.fn().mockResolvedValue(undefined)
     const mockDisconnect = vi.fn().mockResolvedValue(undefined)
     const connectMock = puppeteer.connect as ReturnType<typeof vi.fn>
+    // First goto (networkidle0) throws; fallback goto (load) also throws
+    const mockGoto = vi.fn().mockImplementation(() => {
+      const err = new Error('Navigation timeout')
+      err.name = 'TimeoutError'
+      throw err
+    })
     connectMock.mockResolvedValueOnce({
       newPage: vi.fn().mockResolvedValue({
         setUserAgent: vi.fn().mockResolvedValue(undefined),
-        goto: vi.fn().mockRejectedValue(new Error('Navigation timeout')),
+        goto: mockGoto,
         content: vi.fn().mockResolvedValue('<html></html>'),
         close: mockClose,
+        evaluate: vi.fn().mockResolvedValue(undefined),
       }),
       disconnect: mockDisconnect,
     })
