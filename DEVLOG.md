@@ -24,6 +24,30 @@
 
 ## Entries
 
+### [feat/extraction-composition-iteration] Extraction/composition iteration pass — 2026-03-24 [STAGING]
+
+**Problem:** Cloned pages rendered as white pages with default fonts. The donor site's visual design was not carrying over. Root cause: five compounding information-loss points between the donor site CSS and what Claude received.
+
+**What was built:**
+
+- `extractComponentCss(css, html)` in `extractor.ts` — for each component HTML snippet (nav, hero, footer, card, button), extracts all CSS rules targeting classes/IDs/tags present in the snippet. Previously, component HTML was passed without ANY associated styles — the model saw unstyled class names.
+- `extractHeadingFontPairs(css)` — h1–h6 font-family/font-size pairs give Claude explicit typographic hierarchy instead of guessing from an unordered fontStack array.
+- `extractBackgroundEffects(css)` — background-image/linear-gradient/radial-gradient values (max 10).
+- `extractShadowValues(css)` — box-shadow/text-shadow values (max 10).
+- `composer.ts` — stop stripping `:root {}` blocks from rawCss; increase RAW_CSS_LIMIT: 8000 → 15000; update SYSTEM_PROMPT to instruct Claude to use headingFontPairs for hierarchy, backgroundEffects for gradients, shadowValues for elevation, componentCss rules for styled elements.
+- `types.ts` — new optional `DesignSystem` fields: `headingFontPairs`, `backgroundEffects`, `shadowValues`, `componentCss`.
+- `SKILL_design-cloning.md` — skill document capturing the information loss taxonomy, iteration loop, canonical test URL pairs, and hard rules for future prompt iteration.
+
+**Key insight:** The original composer received component HTML snippets with no CSS rules. The nav HTML had classes like `class="flex items-center gap-4"` but zero stylesheet rules to apply them. The new `componentCss` field pairs each HTML snippet with its actual CSS rules.
+
+**What was NOT changed:** PageContent extraction (flat arrays) — a larger refactor needed separate from this pass.
+
+**Tests:** 19 new tests in extractor.test.ts, 4 new tests in composer.test.ts. 215 total passing.
+
+**Reviewer catch:** Code review flagged that the `BACKGROUND_IMAGE_RE` and `SHADOW_RE` regex `[^;}{]+` stopped at `)` (closing paren), truncating gradient and rgba() values. Fixed to `[^;]+` which correctly captures the full value including balanced parentheses.
+
+---
+
 ### [feat/demo-pairings-random] Demo pairings refresh + random picker — 2026-03-23 [DONE]
 
 **Problem:** The 4 example pills (Stripe+me, Stripe+GitHub, etc.) were weak and repetitive. No way to discover pairings without manually entering URLs.
