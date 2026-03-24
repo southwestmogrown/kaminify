@@ -1,7 +1,16 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { DesignSystem, DiscoveredPage, PageContent } from './types'
 
-const RAW_CSS_LIMIT = 15000
+// Extract all :root { --var: value; } blocks from CSS as a single string.
+// These are prepended to rawCss so design-site variables take cascade priority
+// over any content-site variables that share the same names.
+function buildCssVariableOverrides(cssVariables: string, colorPalette: string[]): string {
+  const vars = cssVariables.trim()
+  if (!vars && colorPalette.length === 0) return ''
+  const parts: string[] = []
+  if (vars) parts.push(`:root { ${vars} }`)
+  return parts.join('\n') + '\n'
+}
 
 const SYSTEM_PROMPT = `You are an expert web developer. Given a design system and page content, build a polished, complete, self-contained HTML page.
 
@@ -20,7 +29,9 @@ Apply the backgroundEffects (gradients, images) to appropriate elements — hero
 
 Apply the shadowValues to elements that have elevation — cards, modals, buttons with depth.
 
-The componentCss object contains the actual CSS rules for the nav, hero, footer, card, and button patterns — use these rules to style the corresponding HTML elements in your output.`
+The componentCss object contains the actual CSS rules for the nav, hero, footer, card, and button patterns — use these rules to style the corresponding HTML elements in your output.
+
+CRITICAL — Design fidelity: Do NOT invent, assume, or import any CSS class names, color values, font choices, or design tokens not explicitly provided in this message. Do NOT reference or replicate the visual design of any named brand or website (including the design source itself) based on your training knowledge — only use what is in the designSystem fields provided here.`
 
 export async function composePage(
   design: DesignSystem,
@@ -31,9 +42,10 @@ export async function composePage(
 ): Promise<string> {
   const client = new Anthropic({ apiKey })
 
-  // Pass the full rawCss up to RAW_CSS_LIMIT — :root blocks are preserved because they
-  // may contain layout rules (custom properties, reset styles) needed for faithful cloning.
-  const rawCssSnippet = design.rawCss.slice(0, RAW_CSS_LIMIT)
+  // Full rawCss is passed — no truncation. Design-site CSS variables are prepended
+  // so they take cascade priority over any content-site variables that share names.
+  const cssOverrides = buildCssVariableOverrides(design.cssVariables, design.colorPalette)
+  const rawCssSnippet = cssOverrides + design.rawCss
 
   const userMessage = JSON.stringify({
     designSystem: {

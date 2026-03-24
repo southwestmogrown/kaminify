@@ -77,14 +77,19 @@ describe('composePage', () => {
     ).rejects.toThrow('Claude did not return valid HTML')
   })
 
-  it('truncates rawCss to 15000 characters', async () => {
+  it('passes full rawCss with cssVariables prepended', async () => {
     mockResponse(validHtml)
     const longCss = 'a'.repeat(20000)
-    await composePage(makeDesign(longCss), makeContent(), makePages(), 'test-key', 'claude-haiku-4-5-20251001')
+    const design = makeDesign(longCss)
+    design.cssVariables = '--primary: #ff0000;'
+    await composePage(design, makeContent(), makePages(), 'test-key', 'claude-haiku-4-5-20251001')
 
     const callArg = mockCreate.mock.calls[0][0]
     const userContent = JSON.parse(callArg.messages[0].content)
-    expect(userContent.designSystem.rawCss.length).toBeLessThanOrEqual(15000)
+    // cssOverrides (:root block) is prepended, then full rawCss
+    expect(userContent.designSystem.rawCss.startsWith(':root { --primary: #ff0000; }')).toBe(true)
+    // Full CSS is passed (no truncation)
+    expect(userContent.designSystem.rawCss.length).toBeGreaterThan(20000)
   })
 
   it('passes headingFontPairs, backgroundEffects, shadowValues, componentCss to composePage when present in designSystem', async () => {
