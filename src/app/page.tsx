@@ -74,7 +74,6 @@ export default function Home() {
             setTier(data.tier)
             if (data.apiKey) {
               setApiKey(data.apiKey)
-              setModel('claude-sonnet-4-6')
             }
           }
         } catch {
