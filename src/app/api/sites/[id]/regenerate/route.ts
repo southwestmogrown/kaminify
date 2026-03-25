@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server'
 import { getSite } from '@/lib/site-storage'
 import { adminClient } from '@/lib/supabase'
+import { deserialiseEncryptedKey, decryptApiKey } from '@/lib/api-key-crypto'
 
 export async function POST(
   request: Request,
@@ -26,7 +27,7 @@ export async function POST(
       })
     }
 
-    // Get the user's API key
+    // Resolve API key for this user
     let effectiveApiKey = process.env.ANTHROPIC_API_KEY ?? ''
     if (userId) {
       const { data: user } = await adminClient()
@@ -35,7 +36,12 @@ export async function POST(
         .eq('clerk_user_id', userId)
         .single()
       if (user?.api_key) {
-        effectiveApiKey = user.api_key
+        try {
+          const encrypted = deserialiseEncryptedKey(user.api_key)
+          effectiveApiKey = decryptApiKey(encrypted)
+        } catch {
+          // Decrypt failed — fall through to env key
+        }
       }
     }
 
@@ -49,20 +55,13 @@ export async function POST(
       })
     }
 
-    // TODO: This is a stub. Full implementation would re-run the full prepare+compose pipeline.
-    // For now, return the site's stored URLs so the client can re-initiate.
-    // A proper implementation would:
-    // 1. Re-scrape both URLs
-    // 2. Re-extract design system and page content
-    // 3. Create a new run
-    // 4. Stream SSE page_complete events back to client
     return new Response(JSON.stringify({
-      message: 'Regenerate not yet implemented — please re-run from the home page with the same URLs',
+      siteId: site.id,
       designUrl: site.design_url,
       contentUrl: site.content_url,
       model: site.model,
     }), {
-      status: 501,
+      status: 200,
       headers: { 'Content-Type': 'application/json' },
     })
   } catch (err) {

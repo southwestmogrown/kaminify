@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 interface UrlInputPanelProps {
   onClone: (designUrl: string, contentUrl: string) => void
@@ -9,6 +9,10 @@ interface UrlInputPanelProps {
   model: string
   onModelChange: (model: string) => void
   hasApiKey: boolean
+  // For pre-filling URLs from site regeneration
+  prefillDesign?: string
+  prefillContent?: string
+  onPrefillConsumed?: () => void
 }
 
 const MODEL_OPTIONS = [
@@ -49,11 +53,39 @@ function validateUrl(v: string): string {
   }
 }
 
-export default function UrlInputPanel({ onClone, isRunning, disabled, model, onModelChange, hasApiKey }: UrlInputPanelProps) {
+export default function UrlInputPanel({ onClone, isRunning, disabled, model, onModelChange, hasApiKey, prefillDesign, prefillContent, onPrefillConsumed }: UrlInputPanelProps) {
   const [designUrl, setDesignUrl] = useState('')
   const [contentUrl, setContentUrl] = useState('')
   const [designError, setDesignError] = useState('')
   const [contentError, setContentError] = useState('')
+  const prefillConsumedRef = useRef(false)
+
+  // Pre-fill URLs when regenerating a saved site
+  useEffect(() => {
+    if (prefillDesign && prefillDesign !== designUrl) {
+      setDesignUrl(prefillDesign)
+      setDesignError('')
+    }
+  }, [prefillDesign]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (prefillContent && prefillContent !== contentUrl) {
+      setContentUrl(prefillContent)
+      setContentError('')
+    }
+    // Signal parent once both URLs are populated and clone is not running
+    if (prefillDesign && prefillContent && !isRunning && !prefillConsumedRef.current) {
+      prefillConsumedRef.current = true
+      onPrefillConsumed?.()
+    }
+  }, [prefillContent]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset the ref when prefill is cleared (parent reset regeneratingFrom)
+  useEffect(() => {
+    if (!prefillDesign && !prefillContent) {
+      prefillConsumedRef.current = false
+    }
+  }, [prefillDesign, prefillContent])
 
   const canSubmit =
     !isRunning &&
