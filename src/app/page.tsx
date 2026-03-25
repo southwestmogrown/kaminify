@@ -421,9 +421,10 @@ export default function Home() {
     () => pages.find((p) => p.slug === activeSlug) ?? null,
     [pages, activeSlug],
   )
-  // Signed-in users: server-enforced limit. Anonymous: sessionStorage-based demo.
+  // Signed-in users: unlimited (server enforces separately via /api/prepare 429).
+  // Anonymous users: demo limit applies only when no BYOK key is present.
   const demoLimitReached = isSignedIn
-    ? !canRun
+    ? false
     : (!apiKey && runsUsed >= DEMO_RUN_LIMIT)
 
   return (
