@@ -24,8 +24,6 @@ export default function Home() {
   const [hasStarted, setHasStarted] = useState(false)
   const [apiKey, setApiKey] = useState<string | null>(null)
   const [model, setModel] = useState('claude-haiku-4-5-20251001')
-  // The server may upgrade the model when screenshots are present (Haiku → Sonnet)
-  const [effectiveModel, setEffectiveModel] = useState('claude-haiku-4-5-20251001')
   const [runsUsed, setRunsUsed] = useState(0)
   const [runsLimit, setRunsLimit] = useState<number | null>(null)  // null = unlimited
   const [canRun, setCanRun] = useState(true)
@@ -117,7 +115,6 @@ export default function Home() {
     setEvents([])
     setPages([])
     setActiveSlug(null)
-    setEffectiveModel(apiKey ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001')
 
     // Anonymous users without BYOK key consume a demo run (server-enforced in /api/prepare)
     if (!apiKey && !isSignedIn) {
@@ -210,8 +207,7 @@ export default function Home() {
         siteId?: string
         runId?: string
       }
-      const { designSystem, pages, pageContents, warnings, model: resolvedModel, designScreenshot, contentScreenshot, userApiKey, siteId, runId } = prepData
-      setEffectiveModel(resolvedModel)
+      const { designSystem, pages, pageContents, warnings, designScreenshot, contentScreenshot, userApiKey, siteId, runId } = prepData
 
       // If prepare returned a stored user api_key, use it for all compose calls
       if (userApiKey) {
@@ -251,7 +247,7 @@ export default function Home() {
             designSystem,
             pageContent: pageContents[i],
             allPages: pages,
-            model: resolvedModel,
+            model,
             ...(designScreenshot &&
               contentScreenshot && {
                 screenshots: { design: designScreenshot, content: contentScreenshot },
@@ -311,7 +307,6 @@ export default function Home() {
     })
     setApiKey(key)
     setModel('claude-sonnet-4-6')
-    setEffectiveModel('claude-sonnet-4-6')
     // Re-fetch quota state now that key is persisted server-side
     const meRes = await fetch('/api/me', { headers: { Authorization: `Bearer ${token}` } })
     if (meRes.ok) {
@@ -332,7 +327,6 @@ export default function Home() {
     }
     setApiKey(null)
     setModel('claude-haiku-4-5-20251001')
-    setEffectiveModel('claude-haiku-4-5-20251001')
     if (token) {
       const meRes = await fetch('/api/me', { headers: { Authorization: `Bearer ${token}` } })
       if (meRes.ok) {
@@ -561,7 +555,6 @@ export default function Home() {
           model={model}
           onModelChange={setModel}
           hasApiKey={!!apiKey}
-          effectiveModel={effectiveModel}
         />
         {!isRunning && pages.length > 0 && (
           <div className="mt-4 flex justify-end">

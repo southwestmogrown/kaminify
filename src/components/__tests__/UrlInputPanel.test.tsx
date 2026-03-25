@@ -14,7 +14,6 @@ function setup(props: Partial<Parameters<typeof UrlInputPanel>[0]> = {}) {
       model={props.model ?? 'claude-haiku-4-5-20251001'}
       onModelChange={props.onModelChange ?? vi.fn()}
       hasApiKey={props.hasApiKey ?? false}
-      effectiveModel={props.effectiveModel ?? props.model ?? 'claude-haiku-4-5-20251001'}
     />
   )
   return { onClone }
