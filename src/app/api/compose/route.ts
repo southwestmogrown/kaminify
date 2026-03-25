@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server'
 import { composePage } from '@/lib/composer'
 import { adminClient } from '@/lib/supabase'
+import { deserialiseEncryptedKey, decryptApiKey } from '@/lib/api-key-crypto'
 import { logComposePage, logRunError } from '@/lib/site-storage'
 import type { CloneEvent, ClonedPage, DesignSystem, DiscoveredPage, PageContent } from '@/lib/types'
 
@@ -47,7 +48,17 @@ export async function POST(request: Request): Promise<Response> {
         .eq('clerk_user_id', signedInUserId)
         .single()
 
-      effectiveApiKey = user?.api_key ?? process.env.ANTHROPIC_API_KEY ?? ''
+      if (user?.api_key) {
+        try {
+          const encrypted = deserialiseEncryptedKey(user.api_key)
+          effectiveApiKey = decryptApiKey(encrypted)
+        } catch {
+          // Decryption failed — key was encrypted with a different KEK or is corrupt; fall through to env key
+          effectiveApiKey = process.env.ANTHROPIC_API_KEY ?? ''
+        }
+      } else {
+        effectiveApiKey = process.env.ANTHROPIC_API_KEY ?? ''
+      }
     } else {
       // Invalid Clerk token — fall through to server key check below
     }
