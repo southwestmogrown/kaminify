@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useUser, useAuth, SignInButton, UserButton } from '@clerk/nextjs'
-import type { CloneEvent, ClonedPage, DiscoveredPage } from '@/lib/types'
+import type { CloneEvent, ClonedPage, DiscoveredPage, Site, Run } from '@/lib/types'
 import { getDemoSession, incrementDemoRun } from '@/lib/demo'
+import { getOrCreateSessionId } from '@/lib/session'
 import UrlInputPanel from '@/components/UrlInputPanel'
 import ProgressFeed from '@/components/ProgressFeed'
 import PageTabBar from '@/components/PageTabBar'
@@ -33,12 +34,29 @@ export default function Home() {
   const [showSignIn, setShowSignIn] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
   const [mobilePreview, setMobilePreview] = useState(false)
+  const [sessionId, setSessionId] = useState<string>('')
+  const [showMySites, setShowMySites] = useState(false)
+  const [mySites, setMySites] = useState<(Site & { runs?: Run[] })[]>([])
+  const [loadingSites, setLoadingSites] = useState(false)
+  const [expandedSiteId, setExpandedSiteId] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
   // Hydrate quota state from server for signed-in users; sessionStorage for anonymous
   useEffect(() => {
     async function hydrate() {
       if (isSignedIn) {
+        // Claim any anonymous runs before hydrating quota
+        if (sessionId) {
+          const token = await getToken()
+          if (token) {
+            fetch('/api/me/claim-anonymous-runs', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ sessionId }),
+            }).catch(() => {/* non-critical */})
+          }
+        }
+
         try {
           const res = await fetch('/api/me')
           if (res.ok) {
@@ -69,7 +87,13 @@ export default function Home() {
       }
     }
     hydrate()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSignedIn])
+
+  // Initialize session ID for anonymous run tracking
+  useEffect(() => {
+    setSessionId(getOrCreateSessionId())
+  }, [])
 
   useEffect(() => {
     return () => { abortRef.current?.abort() }
@@ -163,6 +187,7 @@ export default function Home() {
       pushEvent({ type: 'status', message: 'Scraping and preparing...' })
 
       const params = new URLSearchParams({ designUrl, contentUrl, model })
+      if (sessionId) params.set('sessionId', sessionId)
       const prepRes = await fetch(`/api/prepare?${params}`, {
         headers,
         signal: controller.signal,
@@ -183,8 +208,10 @@ export default function Home() {
         designScreenshot?: string
         contentScreenshot?: string
         userApiKey?: string   // the user's stored api_key (returned for signed-in users)
+        siteId?: string
+        runId?: string
       }
-      const { designSystem, pages, pageContents, warnings, model: resolvedModel, designScreenshot, contentScreenshot, userApiKey } = prepData
+      const { designSystem, pages, pageContents, warnings, model: resolvedModel, designScreenshot, contentScreenshot, userApiKey, siteId, runId } = prepData
       setEffectiveModel(resolvedModel)
 
       // If prepare returned a stored user api_key, use it for all compose calls
@@ -230,6 +257,7 @@ export default function Home() {
               contentScreenshot && {
                 screenshots: { design: designScreenshot, content: contentScreenshot },
               }),
+            ...(siteId && runId && { siteId, runId }),
           }),
           signal: controller.signal,
         })
@@ -317,6 +345,79 @@ export default function Home() {
     }
   }
 
+  async function openMySites() {
+    setShowMySites(true)
+    setLoadingSites(true)
+    try {
+      const token = await getToken()
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (token) headers['Authorization'] = `Bearer ${token}`
+      if (sessionId) headers['x-session-id'] = sessionId
+      const res = await fetch('/api/sites', { headers })
+      if (res.ok) {
+        const data = await res.json() as { sites: Site[] }
+        setMySites(data.sites)
+      }
+    } catch {
+      // non-critical
+    } finally {
+      setLoadingSites(false)
+    }
+  }
+
+  async function handleDeleteSite(id: string) {
+    const token = await getToken()
+    const headers: Record<string, string> = {}
+    if (token) headers['Authorization'] = `Bearer ${token}`
+    if (sessionId) headers['x-session-id'] = sessionId
+    await fetch(`/api/sites/${id}`, { method: 'DELETE', headers })
+    setMySites((prev) => prev.filter((s) => s.id !== id))
+  }
+
+  async function handleRenameSite(id: string, name: string) {
+    const token = await getToken()
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (token) headers['Authorization'] = `Bearer ${token}`
+    if (sessionId) headers['x-session-id'] = sessionId
+    const res = await fetch(`/api/sites/${id}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ name }),
+    })
+    if (res.ok) {
+      const data = await res.json() as { site: Site }
+      setMySites((prev) => prev.map((s) => (s.id === id ? data.site : s)))
+    }
+  }
+
+  async function handleToggleConsent(runId: string, currentConsent: boolean) {
+    const token = await getToken()
+    if (!token) return
+    await fetch(`/api/runs/${runId}/consent`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ consent_for_training: !currentConsent }),
+    })
+  }
+
+  async function openSite(site: Site & { runs?: Run[] }) {
+    if (expandedSiteId === site.id) {
+      setExpandedSiteId(null)
+      return
+    }
+    // Fetch full site with runs
+    const token = await getToken()
+    const headers: Record<string, string> = {}
+    if (token) headers['Authorization'] = `Bearer ${token}`
+    if (sessionId) headers['x-session-id'] = sessionId
+    const res = await fetch(`/api/sites/${site.id}`, { headers })
+    if (!res.ok) return
+    const data = await res.json() as { site: Site & { runs?: Run[] }; runs: Run[] }
+    const siteWithRuns = { ...data.site, runs: data.runs }
+    setMySites((prev) => prev.map((s) => (s.id === site.id ? siteWithRuns : s)))
+    setExpandedSiteId(site.id)
+  }
+
   const activePage = useMemo(
     () => pages.find((p) => p.slug === activeSlug) ?? null,
     [pages, activeSlug],
@@ -343,6 +444,17 @@ export default function Home() {
           Clone any site&apos;s design. Keep your content.
         </span>
         <div className="ml-auto flex items-center gap-3">
+          <button
+            onClick={openMySites}
+            className="text-xs px-3 py-1.5 rounded-md border transition-colors"
+            style={{
+              color: 'var(--color-text-secondary)',
+              borderColor: 'var(--color-border-bright)',
+              backgroundColor: 'transparent',
+            }}
+          >
+            My Sites
+          </button>
           {isSignedIn && apiKey && (
             <button
               onClick={handleClearApiKey}
@@ -510,6 +622,163 @@ export default function Home() {
           onSave={handleSaveApiKey}
           onClose={() => setShowApiKeyInput(false)}
         />
+      )}
+
+      {/* My Sites slide-over */}
+      {showMySites && (
+        <div
+          className="fixed inset-0 z-50 flex justify-end"
+          onClick={() => setShowMySites(false)}
+        >
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div
+            className="relative w-full max-w-md h-full overflow-y-auto border-l flex flex-col"
+            style={{ backgroundColor: 'var(--color-bg-elevated)', borderColor: 'var(--color-border)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className="px-6 py-4 border-b flex items-center justify-between shrink-0"
+              style={{ borderColor: 'var(--color-border)' }}
+            >
+              <h2 className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>My Sites</h2>
+              <button
+                onClick={() => setShowMySites(false)}
+                className="text-xs px-2 py-1 rounded"
+                style={{ color: 'var(--color-text-muted)' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {loadingSites ? (
+                <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Loading...</p>
+              ) : mySites.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                    No saved sites yet. Run a clone to get started.
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  {mySites.map((site) => (
+                    <div
+                      key={site.id}
+                      className="rounded-lg border p-4 flex flex-col gap-2"
+                      style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
+                            {site.name}
+                          </p>
+                          <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--color-text-muted)' }}>
+                            {site.design_url} → {site.content_url}
+                          </p>
+                        </div>
+                        <span
+                          className="text-xs px-1.5 py-0.5 rounded shrink-0"
+                          style={{ backgroundColor: 'var(--color-accent-dim)', color: 'var(--color-accent-hover)' }}
+                        >
+                          {site.model.includes('sonnet') ? 'Sonnet' : site.model.includes('opus') ? 'Opus' : 'Haiku'}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                          {site.page_count} page{site.page_count !== 1 ? 's' : ''}
+                        </span>
+                        <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                          · {new Date(site.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+
+                      <div className="flex gap-2 mt-1">
+                        <button
+                          onClick={() => openSite(site as Site & { runs?: Run[] })}
+                          className="text-xs px-3 py-1 rounded border transition-colors"
+                          style={{
+                            borderColor: 'var(--color-border-bright)',
+                            color: 'var(--color-text-secondary)',
+                          }}
+                        >
+                          {expandedSiteId === site.id ? 'Hide' : 'Show'} runs
+                        </button>
+                        <button
+                          onClick={() => {
+                            const newName = window.prompt('Rename site:', site.name)
+                            if (newName?.trim()) handleRenameSite(site.id, newName.trim())
+                          }}
+                          className="text-xs px-3 py-1 rounded"
+                          style={{ color: 'var(--color-text-muted)' }}
+                        >
+                          Rename
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (window.confirm('Delete this site?')) handleDeleteSite(site.id)
+                          }}
+                          className="text-xs px-3 py-1 rounded ml-auto"
+                          style={{ color: 'var(--color-error)' }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+
+                      {/* Expanded runs view */}
+                      {expandedSiteId === site.id && site.runs && site.runs.length > 0 && (
+                        <div className="mt-2 flex flex-col gap-2 border-t pt-2" style={{ borderColor: 'var(--color-border)' }}>
+                          {site.runs.map((run) => (
+                            <div key={run.id} className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span
+                                  className="text-xs w-2 h-2 rounded-full shrink-0"
+                                  style={{ backgroundColor: run.success ? 'var(--color-success)' : 'var(--color-error)' }}
+                                />
+                                <span className="text-xs truncate" style={{ color: 'var(--color-text-muted)' }}>
+                                  {run.pages_completed}/{run.pages_requested} pages
+                                  {run.consent_for_training ? ' · consented' : ''}
+                                </span>
+                              </div>
+                              {isSignedIn && run.success && (
+                                <label className="flex items-center gap-1.5 shrink-0 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={run.consent_for_training}
+                                    onChange={() => {
+                                      handleToggleConsent(run.id, run.consent_for_training)
+                                      // Optimistic update
+                                      setMySites((prev) =>
+                                        prev.map((s) =>
+                                          s.id === site.id
+                                            ? {
+                                                ...s,
+                                                runs: s.runs?.map((r) =>
+                                                  r.id === run.id ? { ...r, consent_for_training: !r.consent_for_training } : r,
+                                                ),
+                                              }
+                                            : s,
+                                        ),
+                                      )
+                                    }}
+                                    className="accent-orange-500"
+                                  />
+                                  <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                                    Train
+                                  </span>
+                                </label>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Hidden Clerk sign-in trigger for anonymous exhausted users */}
