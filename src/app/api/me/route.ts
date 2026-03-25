@@ -34,13 +34,16 @@ export async function GET(): Promise<Response> {
     }
   }
 
+  // BYOK users have unlimited runs regardless of monthly quota
+  const hasApiKey = !!apiKey
+
   return new Response(
     JSON.stringify({
       runsUsed: quota.runsUsed,
-      runsLimit: quota.runsLimit,
-      canRun: quota.canRun,
+      runsLimit: hasApiKey ? null : quota.runsLimit,
+      canRun: hasApiKey ? true : quota.canRun,
       tier: quota.tier,
-      hasApiKey: !!apiKey,
+      hasApiKey,
       apiKey,
     }),
     {

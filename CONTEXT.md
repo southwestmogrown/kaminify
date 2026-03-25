@@ -24,8 +24,9 @@ Pages appear progressively via SSE streaming. Preview in-browser via sandboxed i
 1. `npm run lint` — must pass, zero warnings
 2. `npm run test` — all 225 tests must pass
 3. `npm run typecheck` — fix any new errors (pre-existing stripe/supabase missing-module errors are OK, they are not installed)
-4. Commit to feature branch, push, create PR to **staging**
-5. Do NOT merge to main — wait for user approval
+4. **Code review** — all code changes must pass review via the `code-review` skill before merging
+5. Commit to feature branch, push, create PR to **staging**
+6. Do NOT merge to main — wait for user approval
 
 ---
 

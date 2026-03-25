@@ -9,7 +9,6 @@ interface UrlInputPanelProps {
   model: string
   onModelChange: (model: string) => void
   hasApiKey: boolean
-  effectiveModel: string
 }
 
 const MODEL_OPTIONS = [
@@ -50,8 +49,7 @@ function validateUrl(v: string): string {
   }
 }
 
-export default function UrlInputPanel({ onClone, isRunning, disabled, model, onModelChange, hasApiKey, effectiveModel }: UrlInputPanelProps) {
-  const modelLabel = { 'claude-haiku-4-5-20251001': 'Haiku', 'claude-sonnet-4-6': 'Sonnet', 'claude-opus-4-6': 'Opus' }[effectiveModel] ?? effectiveModel
+export default function UrlInputPanel({ onClone, isRunning, disabled, model, onModelChange, hasApiKey }: UrlInputPanelProps) {
   const [designUrl, setDesignUrl] = useState('')
   const [contentUrl, setContentUrl] = useState('')
   const [designError, setDesignError] = useState('')
@@ -212,19 +210,6 @@ export default function UrlInputPanel({ onClone, isRunning, disabled, model, onM
               : <option value="claude-haiku-4-5-20251001">Haiku (fast)</option>
             }
           </select>
-          {effectiveModel !== model && (
-            <span
-              className="text-xs px-2 py-1 rounded border"
-              style={{
-                backgroundColor: 'var(--color-accent-dim)',
-                borderColor: 'rgba(249,115,22,0.3)',
-                color: 'var(--color-accent-hover)',
-              }}
-              title="Automatically upgraded based on site type"
-            >
-              {modelLabel}
-            </span>
-          )}
         </div>
 
       <button
