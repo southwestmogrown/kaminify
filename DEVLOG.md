@@ -19,10 +19,46 @@
 | #13 | ApiKeyInput + DemoBanner | M4 | DONE |
 | #14 | Polish pass | M4 | DONE |
 | #15 | README + deploy | M4 | DONE |
+| #16 | Site storage + training log | P1 | DONE |
 
 ---
 
 ## Entries
+
+### [feat/site-storage-and-training-log] Site storage + run logging for future LLM training — 2026-03-25 [PR #88 → staging]
+
+**Goal:** Persistence layer for beta — save sites, track runs, build training dataset for future in-house LLM.
+
+**What was built:**
+
+- **`supabase/migrations/003_sites_and_training.sql`** — full schema:
+  - `sites`: `user_id`, `session_id`, `name`, `design_url`, `content_url`, `page_count`, `model`, soft-delete
+  - `runs`: `site_id`, `user_id`, `session_id`, `pages_requested/completed`, `success`, `consent_for_training`, `claimed_at`
+  - `run_page_inputs`: full `DesignSystem` + `PageContent` JSON snapshot per page — exact prompt context sent to Claude
+  - `run_page_outputs`: generated HTML + token counts per page
+  - `claim_anonymous_runs(p_session_id, p_user_id)` SQL function migrates session-bound records on sign-in
+
+- **`src/lib/site-storage.ts`** — `logPrepareRun()`, `logComposePage()`, `logRunError()`, `listSites()`, `getSite()`, `renameSite()`, `deleteSite()`, `claimAnonymousRuns()`, `setRunConsent()`. Sequential inserts with RPC fallback.
+
+- **`src/lib/session.ts`** — `getOrCreateSessionId()` / `getSessionId()` — client-side `sessionStorage` for anonymous `kaminify_session_id`.
+
+- **`src/app/api/prepare/route.ts`** — after scrape+extract, calls `logPrepareRun()` (site + run + all page inputs). Returns `siteId` + `runId` in JSON. `sessionId` accepted via query param.
+
+- **`src/app/api/compose/route.ts`** — after each page generation, calls `logComposePage()` (output row). On error, calls `logRunError()`. Accepts `siteId`/`runId` from body.
+
+- **API routes**: `GET/POST /api/sites`, `GET/PATCH/DELETE /api/sites/:id`, `POST /api/sites/:id/regenerate` (stub), `PATCH /api/runs/:id/consent`, `POST /api/me/claim-anonymous-runs`.
+
+- **`src/app/page.tsx`** — "My Sites" slide-over panel: site list, open/fetch-with-runs, rename, delete, per-run training consent toggle. `sessionId` generated on mount, passed to prepare. On sign-in, `claimAnonymousRuns()` called to migrate anon runs.
+
+**Key design decisions:**
+- `consent_for_training` defaults `false` — opt-in only, anonymous runs can't train without explicit consent
+- Full `DesignSystem` + `PageContent` stored verbatim in `run_page_inputs` — no joins needed to build training pairs
+- `session_id` for anonymous users → retroactive claim on sign-in preserves training data
+- Logging failures are non-blocking — pipeline never fails due to a logging error
+
+**New env vars:** none.
+
+---
 
 ### [docs/beta-prep] Beta launch prep — README rewrite, SKILL update, landing page context — 2026-03-25 [STAGING]
 
@@ -436,7 +472,7 @@ export default clerkMiddleware({ frontendApiProxy: { enabled: true } })
 |---|---|---|
 | P0 | **JS-rendered site support** | Sites built on React/Vue/Next serve empty HTML to static scrapers. Need headless browser execution — options: Browserless.io (tried, timeout issues), Playwright in a long-running container, or a dedicated scrape microservice on AWS Lambda with higher timeout budget |
 | P1 | **Auth + billing** | Free tier with BYOK (current); paid tier without API key (managed key, usage metered). Options: Clerk/Auth.js for auth, Stripe for billing, usage table in Postgres/Supabase |
-| P1 | **Site storage + CRUD** | Persist generated sites server-side. Simple list view, re-open/preview, delete. Stretch: inline HTML editor for hotfixes on the generated output |
+| P1 | **Site storage + CRUD** | DONE — My Sites panel + site persistence + training log |
 | P2 | **Prompt iteration** | A/B different system prompts, track which produces better output. Could expose a "quality" rating UI to collect signal |
 | P2 | **Design token editor** | Let the user tweak color palette / fonts / spacing before generation — or after, with live re-render |
 | P2 | **Mobile preview toggle** | Resize the iframe to 375px width to check responsive output without leaving the app |

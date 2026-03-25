@@ -116,3 +116,61 @@ export interface QuotaStatus {
   runsLimit: number | null  // null = unlimited
   canRun: boolean
 }
+
+// =============================================================================
+// Site Storage + Training Log Types
+// =============================================================================
+
+export interface Site {
+  id: string
+  user_id: string | null
+  session_id: string | null
+  name: string
+  design_url: string
+  content_url: string
+  page_count: number
+  model: string
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
+
+export interface Run {
+  id: string
+  site_id: string | null
+  user_id: string | null
+  session_id: string | null
+  model: string
+  pages_requested: number
+  pages_completed: number
+  js_rendered_design: boolean
+  js_rendered_content: boolean
+  success: boolean
+  error_message: string | null
+  duration_ms: number | null
+  consent_for_training: boolean
+  claimed_at: string | null
+  created_at: string
+}
+
+export interface RunPageInput {
+  id: string
+  run_id: string
+  page_slug: string
+  page_title: string
+  nav_label: string
+  design_system: DesignSystem & { jsRendered?: boolean }
+  page_content: PageContent
+  navigation: Array<{ slug: string; label: string; href: string }>
+  created_at: string
+}
+
+export interface RunPageOutput {
+  id: string
+  run_page_input_id: string
+  prompt_tokens: number | null
+  completion_tokens: number | null
+  model_used: string
+  generated_html: string
+  created_at: string
+}
