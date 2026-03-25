@@ -49,15 +49,7 @@ export async function GET(request: Request): Promise<Response> {
     signedInUserId = userId
 
     if (signedInUserId) {
-      const quota = await getQuotaStatus(signedInUserId)
-      if (!quota.canRun) {
-        return new Response(
-          JSON.stringify({ error: 'Run limit reached. Add your own API key to continue.' }),
-          { status: 403, headers: { 'Content-Type': 'application/json' } },
-        )
-      }
-
-      // Fetch the user's stored BYOK key if they have one
+      // Fetch the user's stored BYOK key FIRST so we know if they get unlimited runs
       const { data: user } = await adminClient()
         .from('users')
         .select('api_key')
@@ -69,6 +61,14 @@ export async function GET(request: Request): Promise<Response> {
         userApiKeyToReturn = user.api_key
         isByok = true
       } else {
+        // No BYOK key — check monthly quota
+        const quota = await getQuotaStatus(signedInUserId)
+        if (!quota.canRun) {
+          return new Response(
+            JSON.stringify({ error: 'Run limit reached. Add your own API key to continue.' }),
+            { status: 403, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
         effectiveApiKey = process.env.ANTHROPIC_API_KEY ?? ''
       }
     } else {
