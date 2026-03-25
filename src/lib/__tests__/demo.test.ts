@@ -1,12 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest'
-import {
-  getDemoSession,
-  incrementDemoRun,
-  getByokSession,
-  saveByokSession,
-  clearByokSession,
-} from '../demo'
+import { getDemoSession, incrementDemoRun } from '../demo'
 
 beforeEach(() => {
   sessionStorage.clear()
@@ -35,33 +29,5 @@ describe('incrementDemoRun', () => {
     incrementDemoRun()
     const session = incrementDemoRun()
     expect(session.runsUsed).toBe(2)
-  })
-})
-
-describe('getByokSession', () => {
-  it('returns null when storage is empty', () => {
-    expect(getByokSession()).toBeNull()
-  })
-})
-
-describe('saveByokSession', () => {
-  it('returns { apiKey: "sk-ant-test" }', () => {
-    const session = saveByokSession('sk-ant-test')
-    expect(session.apiKey).toBe('sk-ant-test')
-  })
-
-  it('getByokSession returns the saved session after saveByokSession', () => {
-    saveByokSession('sk-ant-test')
-    const session = getByokSession()
-    expect(session).not.toBeNull()
-    expect(session!.apiKey).toBe('sk-ant-test')
-  })
-})
-
-describe('clearByokSession', () => {
-  it('removes the session — getByokSession returns null after clear', () => {
-    saveByokSession('sk-ant-test')
-    clearByokSession()
-    expect(getByokSession()).toBeNull()
   })
 })

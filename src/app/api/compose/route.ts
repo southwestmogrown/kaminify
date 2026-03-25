@@ -1,9 +1,10 @@
+import { auth } from '@clerk/nextjs/server'
 import { composePage } from '@/lib/composer'
+import { adminClient } from '@/lib/supabase'
 import type { CloneEvent, ClonedPage, DesignSystem, DiscoveredPage, PageContent } from '@/lib/types'
 
 const encoder = new TextEncoder()
 
-// TODO: share via a constants module
 const BYOK_MODELS = ['claude-haiku-4-5-20251001', 'claude-sonnet-4-6', 'claude-opus-4-6']
 
 function send(controller: ReadableStreamDefaultController, event: CloneEvent) {
@@ -16,16 +17,45 @@ interface ComposeBody {
   allPages: DiscoveredPage[]
   model?: string
   screenshots?: {
-    design: string   // base64 PNG
-    content: string  // base64 PNG
+    design: string
+    content: string
   }
 }
 
 export async function POST(request: Request): Promise<Response> {
-  const byokKey = request.headers.get('x-api-key')
-  const apiKey = byokKey ?? process.env.ANTHROPIC_API_KEY ?? ''
+  const byokHeader = request.headers.get('x-api-key')
+  const authHeader = request.headers.get('authorization')
 
-  if (!apiKey) {
+  let effectiveApiKey = ''
+  let signedInUserId: string | null = null
+
+  if (byokHeader) {
+    // BYOK mode — user's own key takes precedence
+    effectiveApiKey = byokHeader
+  } else if (authHeader?.startsWith('Bearer ')) {
+    // Signed-in user — use their stored api_key if available, otherwise server env key
+    const { userId } = await auth()
+    signedInUserId = userId
+
+    if (signedInUserId) {
+      const { data: user } = await adminClient()
+        .from('users')
+        .select('api_key')
+        .eq('clerk_user_id', signedInUserId)
+        .single()
+
+      effectiveApiKey = user?.api_key ?? process.env.ANTHROPIC_API_KEY ?? ''
+    } else {
+      // Invalid Clerk token — fall through to server key check below
+    }
+  }
+
+  // Fallback: use server-side env key (demo mode — no auth required)
+  if (!effectiveApiKey) {
+    effectiveApiKey = process.env.ANTHROPIC_API_KEY ?? ''
+  }
+
+  if (!effectiveApiKey) {
     return new Response('Unauthorized', { status: 401 })
   }
 
@@ -43,10 +73,10 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   // If screenshots are provided, enforce Sonnet (Haiku can't read images)
-  // Otherwise fall back to the requested model or the default for the auth tier
+  // BYOK/signed-in users can request Sonnet; demo mode uses Haiku
   const model = screenshots
     ? 'claude-sonnet-4-6'
-    : byokKey
+    : effectiveApiKey && (byokHeader || signedInUserId)
       ? (BYOK_MODELS.includes(requestedModel ?? '') ? requestedModel! : 'claude-sonnet-4-6')
       : 'claude-haiku-4-5-20251001'
 
@@ -63,7 +93,7 @@ export async function POST(request: Request): Promise<Response> {
       }, 2000)
 
       try {
-        const html = await composePage(designSystem, pageContent, allPages, apiKey, model, screenshots)
+        const html = await composePage(designSystem, pageContent, allPages, effectiveApiKey, model, screenshots)
         clearInterval(tick)
         const clonedPage: ClonedPage = {
           slug: pageContent.slug,

@@ -96,12 +96,6 @@ export interface DemoSession {
   startedAt: string
 }
 
-// BYOK session (stored in sessionStorage)
-export interface ByokSession {
-  apiKey: string   // user's Anthropic key
-  addedAt: string
-}
-
 // DB user record
 export interface UserRecord {
   id: string
