@@ -6,6 +6,7 @@ import { extractDesignSystem, extractPageContent } from '@/lib/extractor'
 import { getQuotaStatus, incrementRun } from '@/lib/quota'
 import { adminClient } from '@/lib/supabase'
 import { logPrepareRun } from '@/lib/site-storage'
+import { deserialiseEncryptedKey, decryptApiKey } from '@/lib/api-key-crypto'
 import type { DesignSystem, DiscoveredPage, PageContent } from '@/lib/types'
 
 const BYOK_MODELS = ['claude-haiku-4-5-20251001', 'claude-sonnet-4-6', 'claude-opus-4-6']
@@ -57,9 +58,29 @@ export async function GET(request: Request): Promise<Response> {
         .single()
 
       if (user?.api_key) {
-        effectiveApiKey = user.api_key
-        userApiKeyToReturn = user.api_key
-        isByok = true
+        // Decrypt the stored BYOK key — the DB only holds ciphertext
+        let decryptedKey: string | null = null
+        try {
+          const encrypted = deserialiseEncryptedKey(user.api_key)
+          decryptedKey = decryptApiKey(encrypted)
+        } catch {
+          // Corrupt key — treat as no key, fall through to quota check
+        }
+        if (decryptedKey) {
+          effectiveApiKey = decryptedKey
+          userApiKeyToReturn = decryptedKey
+          isByok = true
+        } else {
+          // Decryption failed — fall through to quota check
+          const quota = await getQuotaStatus(signedInUserId)
+          if (!quota.canRun) {
+            return new Response(
+              JSON.stringify({ error: 'Run limit reached. Add your own API key to continue.' }),
+              { status: 403, headers: { 'Content-Type': 'application/json' } },
+            )
+          }
+          effectiveApiKey = process.env.ANTHROPIC_API_KEY ?? ''
+        }
       } else {
         // No BYOK key — check monthly quota
         const quota = await getQuotaStatus(signedInUserId)
