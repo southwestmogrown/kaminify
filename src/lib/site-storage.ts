@@ -337,18 +337,30 @@ export async function getRunsForSite(siteId: string): Promise<Run[]> {
 export async function getRunPages(runId: string): Promise<{ inputs: RunPageInput[]; outputs: RunPageOutput[] }> {
   const db = adminClient()
 
-  const [inputsRes, outputsRes] = await Promise.all([
-    db.from('run_page_inputs').select('*').eq('run_id', runId).order('created_at', { ascending: true }),
-    db.from('run_page_outputs').select('*').eq('run_page_input_id', db.rpc('get_run_input_ids', { p_run_id: runId })),
-  ])
+  // Fetch inputs first, then use their IDs to query outputs
+  const inputsRes = await db
+    .from('run_page_inputs')
+    .select('*')
+    .eq('run_id', runId)
+    .order('created_at', { ascending: true })
 
   if (inputsRes.error) throw new Error(`getRunPages inputs: ${inputsRes.error.message}`)
-  if (outputsRes.error) throw new Error(`getRunPages outputs: ${outputsRes.error.message}`)
 
-  return {
-    inputs: (inputsRes.data as RunPageInput[]) ?? [],
-    outputs: (outputsRes.data as RunPageOutput[]) ?? [],
+  const inputs = (inputsRes.data as RunPageInput[]) ?? []
+  const inputIds = inputs.map((i) => i.id)
+
+  let outputs: RunPageOutput[] = []
+  if (inputIds.length > 0) {
+    const outputsRes = await db
+      .from('run_page_outputs')
+      .select('*')
+      .in('run_page_input_id', inputIds)
+
+    if (outputsRes.error) throw new Error(`getRunPages outputs: ${outputsRes.error.message}`)
+    outputs = (outputsRes.data as RunPageOutput[]) ?? []
   }
+
+  return { inputs, outputs }
 }
 
 // =============================================================================

@@ -97,13 +97,7 @@ export default function Home() {
   useEffect(() => {
     if (regeneratingFrom) {
       setModel(regeneratingFrom.model)
-      // Use setTimeout to let React flush the state update first
-      const timeout = setTimeout(() => {
-        if (regeneratingFrom) {
-          startClone(regeneratingFrom.design_url, regeneratingFrom.content_url)
-        }
-      }, 0)
-      return () => clearTimeout(timeout)
+      startClone(regeneratingFrom.design_url, regeneratingFrom.content_url, regeneratingFrom.model)
     }
   }, [regeneratingFrom]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -120,7 +114,7 @@ export default function Home() {
     }
   }, [showSignIn])
 
-  async function startClone(designUrl: string, contentUrl: string) {
+  async function startClone(designUrl: string, contentUrl: string, modelOverride?: string) {
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
@@ -197,7 +191,8 @@ export default function Home() {
     try {
       pushEvent({ type: 'status', message: 'Scraping and preparing...' })
 
-      const params = new URLSearchParams({ designUrl, contentUrl, model })
+      const effectiveModel = modelOverride ?? model
+    const params = new URLSearchParams({ designUrl, contentUrl, model: effectiveModel })
       if (sessionId) params.set('sessionId', sessionId)
       const prepRes = await fetch(`/api/prepare?${params}`, {
         headers,
@@ -262,7 +257,7 @@ export default function Home() {
             designSystem,
             pageContent: pageContents[i],
             allPages: pages,
-            model,
+            model: effectiveModel,
             ...(designScreenshot &&
               contentScreenshot && {
                 screenshots: { design: designScreenshot, content: contentScreenshot },
@@ -284,7 +279,9 @@ export default function Home() {
         pushEvent({ type: 'done' })
       }
     } catch (err: unknown) {
-      if (!(err instanceof Error && err.name === 'AbortError')) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        pushEvent({ type: 'status', message: 'Cancelled' })
+      } else {
         pushEvent({ type: 'error', error: err instanceof Error ? err.message : 'Unknown error' })
       }
     } finally {
@@ -300,6 +297,11 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pages }),
       })
+      if (!res.ok) {
+        const text = await res.text()
+        alert(`Download failed: ${text || res.status}`)
+        return
+      }
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -398,14 +400,34 @@ export default function Home() {
     }
   }
 
-  async function handleToggleConsent(runId: string, currentConsent: boolean) {
+  async function handleToggleConsent(siteId: string, runId: string, currentConsent: boolean) {
     const token = await getToken()
     if (!token) return
-    await fetch(`/api/runs/${runId}/consent`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ consent_for_training: !currentConsent }),
-    })
+    // Optimistic update
+    setMySites((prev) =>
+      prev.map((s) =>
+        s.id === siteId
+          ? { ...s, runs: s.runs?.map((r) => r.id === runId ? { ...r, consent_for_training: !currentConsent } : r) }
+          : s,
+      ),
+    )
+    try {
+      const res = await fetch(`/api/runs/${runId}/consent`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ consent_for_training: !currentConsent }),
+      })
+      if (!res.ok) throw new Error('Failed')
+    } catch {
+      // Rollback on failure
+      setMySites((prev) =>
+        prev.map((s) =>
+          s.id === siteId
+            ? { ...s, runs: s.runs?.map((r) => r.id === runId ? { ...r, consent_for_training: currentConsent } : r) }
+            : s,
+        ),
+      )
+    }
   }
 
   async function openSite(site: Site & { runs?: Run[] }) {
@@ -773,22 +795,7 @@ export default function Home() {
                                   <input
                                     type="checkbox"
                                     checked={run.consent_for_training}
-                                    onChange={() => {
-                                      handleToggleConsent(run.id, run.consent_for_training)
-                                      // Optimistic update
-                                      setMySites((prev) =>
-                                        prev.map((s) =>
-                                          s.id === site.id
-                                            ? {
-                                                ...s,
-                                                runs: s.runs?.map((r) =>
-                                                  r.id === run.id ? { ...r, consent_for_training: !r.consent_for_training } : r,
-                                                ),
-                                              }
-                                            : s,
-                                        ),
-                                      )
-                                    }}
+                                    onChange={() => handleToggleConsent(site.id, run.id, run.consent_for_training)}
                                     className="accent-orange-500"
                                   />
                                   <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
