@@ -390,7 +390,6 @@ export async function setRunConsent(
     .update({ consent_for_training: consent })
     .eq('id', runId)
     .eq('user_id', userId)
-    .is('user_id', null)
 
   return !error
 }

@@ -155,3 +155,85 @@ DROP TRIGGER IF EXISTS sites_updated_at ON sites;
 CREATE TRIGGER sites_updated_at
   BEFORE UPDATE ON sites
   FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+
+-- =============================================================================
+-- RPC FUNCTIONS (called by site-storage.ts)
+-- =============================================================================
+
+-- log_prepare_run: atomic insert of site + run + all run_page_inputs. Returns {siteId, runId}.
+CREATE OR REPLACE FUNCTION log_prepare_run(
+  p_user_id          TEXT,
+  p_session_id       TEXT,
+  p_name             TEXT,
+  p_design_url       TEXT,
+  p_content_url      TEXT,
+  p_model            TEXT,
+  p_page_count       INTEGER,
+  p_js_rendered_design  BOOLEAN,
+  p_js_rendered_content BOOLEAN,
+  p_pages_requested INTEGER,
+  p_design_system    JSONB,
+  p_page_contents    JSONB,
+  p_navigation       JSONB,
+  p_js_rendered      BOOLEAN DEFAULT false
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_site_id UUID;
+  v_run_id   UUID;
+BEGIN
+  -- Insert site
+  INSERT INTO sites (user_id, session_id, name, design_url, content_url, model, page_count)
+  VALUES (p_user_id, p_session_id, p_name, p_design_url, p_content_url, p_model, p_page_count)
+  RETURNING id INTO v_site_id;
+
+  -- Insert run
+  INSERT INTO runs (site_id, user_id, session_id, model, pages_requested, js_rendered_design, js_rendered_content)
+  VALUES (v_site_id, p_user_id, p_session_id, p_model, p_pages_requested, p_js_rendered_design, p_js_rendered_content)
+  RETURNING id INTO v_run_id;
+
+  -- Insert run_page_inputs (one per page — page_contents and navigation are aligned arrays)
+  INSERT INTO run_page_inputs (run_id, page_slug, page_title, nav_label, design_system, page_content, navigation)
+  SELECT
+    v_run_id,
+    (nav_elem->>'slug')::TEXT,
+    (nav_elem->>'title')::TEXT,
+    (nav_elem->>'label')::TEXT,
+    p_design_system,
+    p_page_contents[(nav_idx - 1)],
+    p_navigation
+  FROM jsonb_array_elements(p_navigation) WITH ORDINALITY AS nav(nav_elem, nav_idx)
+  ON CONFLICT DO NOTHING;
+
+  RETURN jsonb_build_object('siteId', v_site_id, 'runId', v_run_id);
+END;
+$$;
+
+-- increment_pages_completed: atomic increment of pages_completed on a run.
+CREATE OR REPLACE FUNCTION increment_pages_completed(p_run_id UUID)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  UPDATE runs
+  SET pages_completed = pages_completed + 1
+  WHERE id = p_run_id;
+END;
+$$;
+
+-- get_run_input_ids: returns array of run_page_input UUIDs for a given run.
+CREATE OR REPLACE FUNCTION get_run_input_ids(p_run_id UUID)
+RETURNS UUID[]
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN ARRAY(
+    SELECT id FROM run_page_inputs WHERE run_id = p_run_id ORDER BY created_at ASC
+  );
+END;
+$$;
