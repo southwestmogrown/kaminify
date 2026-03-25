@@ -54,7 +54,8 @@ async function callRoute(siteId: string, headers: Record<string, string> = {}) {
 beforeEach(() => {
   vi.clearAllMocks()
   delete process.env.ANTHROPIC_API_KEY
-  mockAuth.mockResolvedValue({ userId: null } as any)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  mockAuth.mockImplementation(() => Promise.resolve({ userId: null } as any) as any)
   mockAdminClient.mockReturnValue({
     from: vi.fn().mockReturnValue({
       select: vi.fn().mockReturnValue({
@@ -79,7 +80,8 @@ describe('POST /api/sites/:id/regenerate', () => {
   })
 
   it('returns 401 when no API key available (signed-in user with no key, no BYOK header, no env key)', async () => {
-    mockAuth.mockResolvedValue({ userId: 'user-1' } as any)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  mockAuth.mockImplementation(() => Promise.resolve({ userId: 'user-1' }) as any)
     mockGetSite.mockResolvedValue(fakeSite)
     const res = await callRoute('site-1', { Authorization: 'Bearer user-token' })
     expect(res.status).toBe(401)
@@ -113,7 +115,8 @@ describe('POST /api/sites/:id/regenerate', () => {
 
   it('returns 200 when signed-in user has stored encrypted API key', async () => {
     process.env.ANTHROPIC_API_KEY = ''
-    mockAuth.mockResolvedValue({ userId: 'user-1' } as any)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  mockAuth.mockImplementation(() => Promise.resolve({ userId: 'user-1' }) as any)
     mockGetSite.mockResolvedValue(fakeSite)
     mockDeserialiseEncryptedKey.mockReturnValue({ ciphertext: 'abc', iv: 'def', authTag: 'ghi' })
     mockDecryptApiKey.mockReturnValue('sk-ant-decrypted-key')
@@ -139,7 +142,8 @@ describe('POST /api/sites/:id/regenerate', () => {
 
   it('returns 200 and uses env key when stored key decrypt fails', async () => {
     process.env.ANTHROPIC_API_KEY = 'sk-ant-server-key'
-    mockAuth.mockResolvedValue({ userId: 'user-1' } as any)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  mockAuth.mockImplementation(() => Promise.resolve({ userId: 'user-1' }) as any)
     mockGetSite.mockResolvedValue(fakeSite)
     mockDeserialiseEncryptedKey.mockReturnValue({ ciphertext: 'abc', iv: 'def', authTag: 'ghi' })
     mockDecryptApiKey.mockImplementation(() => { throw new Error('decrypt failed') })
