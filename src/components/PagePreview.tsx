@@ -54,32 +54,84 @@ export default function PagePreview({ page, isLoading, mobilePreview }: PagePrev
   if (mobilePreview) {
     return (
       <div
-        className="flex flex-1 justify-center overflow-auto"
+        className="flex flex-1 justify-center overflow-auto py-6"
         style={{ backgroundColor: 'var(--color-bg-base)', minHeight: 0 }}
       >
-        <iframe
-          src={iframeSrc}
-          title={page.title}
-          sandbox="allow-scripts allow-same-origin"
+        <div
+          className="flex flex-col shrink-0 rounded-[2rem] overflow-hidden"
           style={{
-            width: 375,
-            flexShrink: 0,
-            border: 'none',
-            boxShadow: '0 0 0 1px rgba(255,255,255,0.08), 0 8px 32px rgba(0,0,0,0.4)',
-            alignSelf: 'stretch',
+            width: 390,
+            boxShadow: '0 0 0 1px rgba(255,255,255,0.08), 0 0 0 8px var(--color-bg-elevated), 0 0 0 9px var(--color-border), 0 16px 48px rgba(0,0,0,0.5)',
+            alignSelf: 'flex-start',
           }}
-        />
+        >
+          {/* Phone notch bar */}
+          <div
+            className="flex items-center justify-center py-2 shrink-0"
+            style={{ backgroundColor: 'var(--color-bg-elevated)' }}
+          >
+            <div
+              className="rounded-full"
+              style={{ width: 80, height: 6, backgroundColor: 'var(--color-border-bright)' }}
+            />
+          </div>
+          <iframe
+            src={iframeSrc}
+            title={page.title}
+            sandbox="allow-scripts allow-same-origin"
+            style={{
+              width: 390,
+              height: 720,
+              border: 'none',
+            }}
+          />
+          {/* Home indicator */}
+          <div
+            className="flex items-center justify-center py-2 shrink-0"
+            style={{ backgroundColor: 'var(--color-bg-elevated)' }}
+          >
+            <div
+              className="rounded-full"
+              style={{ width: 120, height: 4, backgroundColor: 'var(--color-border-bright)' }}
+            />
+          </div>
+        </div>
       </div>
     )
   }
 
   return (
-    <iframe
-      src={iframeSrc}
-      title={page.title}
-      sandbox="allow-scripts allow-same-origin"
-      className="w-full flex-1 border-0"
-      style={{ minHeight: 0 }}
-    />
+    <div className="flex flex-col flex-1 min-h-0" style={{ backgroundColor: 'var(--color-bg-base)' }}>
+      {/* Browser chrome */}
+      <div
+        className="flex items-center gap-2 px-4 py-2 shrink-0 border-b"
+        style={{ backgroundColor: 'var(--color-bg-elevated)', borderColor: 'var(--color-border)' }}
+      >
+        {/* Traffic lights */}
+        <div className="flex gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#ff5f57' }} />
+          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#febc2e' }} />
+          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#28c840' }} />
+        </div>
+        {/* Address bar */}
+        <div
+          className="flex-1 px-3 py-1 rounded-md text-xs truncate"
+          style={{
+            backgroundColor: 'var(--color-bg-input)',
+            color: 'var(--color-text-muted)',
+            border: '1px solid var(--color-border)',
+          }}
+        >
+          {page.title}
+        </div>
+      </div>
+      <iframe
+        src={iframeSrc}
+        title={page.title}
+        sandbox="allow-scripts allow-same-origin"
+        className="w-full flex-1 border-0"
+        style={{ minHeight: 0 }}
+      />
+    </div>
   )
 }
