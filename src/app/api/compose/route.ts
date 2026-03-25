@@ -1,6 +1,8 @@
 import { auth } from '@clerk/nextjs/server'
 import { composePage } from '@/lib/composer'
 import { adminClient } from '@/lib/supabase'
+import { deserialiseEncryptedKey, decryptApiKey } from '@/lib/api-key-crypto'
+import { logComposePage, logRunError } from '@/lib/site-storage'
 import type { CloneEvent, ClonedPage, DesignSystem, DiscoveredPage, PageContent } from '@/lib/types'
 
 const encoder = new TextEncoder()
@@ -20,6 +22,8 @@ interface ComposeBody {
     design: string
     content: string
   }
+  siteId?: string
+  runId?: string
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -44,7 +48,17 @@ export async function POST(request: Request): Promise<Response> {
         .eq('clerk_user_id', signedInUserId)
         .single()
 
-      effectiveApiKey = user?.api_key ?? process.env.ANTHROPIC_API_KEY ?? ''
+      if (user?.api_key) {
+        try {
+          const encrypted = deserialiseEncryptedKey(user.api_key)
+          effectiveApiKey = decryptApiKey(encrypted)
+        } catch {
+          // Decryption failed — key was encrypted with a different KEK or is corrupt; fall through to env key
+          effectiveApiKey = process.env.ANTHROPIC_API_KEY ?? ''
+        }
+      } else {
+        effectiveApiKey = process.env.ANTHROPIC_API_KEY ?? ''
+      }
     } else {
       // Invalid Clerk token — fall through to server key check below
     }
@@ -66,7 +80,7 @@ export async function POST(request: Request): Promise<Response> {
     return new Response('Bad Request', { status: 400 })
   }
 
-  const { designSystem, pageContent, allPages, model: requestedModel, screenshots } = body
+  const { designSystem, pageContent, allPages, model: requestedModel, screenshots, runId } = body
 
   if (!designSystem || !pageContent || !Array.isArray(allPages)) {
     return new Response('Bad Request', { status: 400 })
@@ -81,6 +95,12 @@ export async function POST(request: Request): Promise<Response> {
       : 'claude-haiku-4-5-20251001'
 
   const navLabel = allPages.find((p) => p.slug === pageContent.slug)?.navLabel || pageContent.title || pageContent.slug
+
+  const navigation: Array<{ slug: string; label: string; href: string }> = allPages.map((p) => ({
+    slug: p.slug,
+    label: p.navLabel,
+    href: `${p.slug}.html`,
+  }))
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -103,6 +123,25 @@ export async function POST(request: Request): Promise<Response> {
           generatedAt: new Date().toISOString(),
         }
         send(controller, { type: 'page_complete', page: clonedPage })
+
+        // Log the page output to DB — non-blocking
+        if (runId) {
+          logComposePage({
+            runId,
+            pageSlug: pageContent.slug,
+            pageTitle: pageContent.title,
+            navLabel,
+            designSystem,
+            pageContent,
+            navigation,
+            generatedHtml: html,
+            promptTokens: null,   // composePage doesn't return token counts
+            completionTokens: null,
+            modelUsed: model,
+          }).catch((logErr) => {
+            console.error('Failed to log compose page:', logErr)
+          })
+        }
       } catch (err) {
         clearInterval(tick)
         let message: string
@@ -112,6 +151,13 @@ export async function POST(request: Request): Promise<Response> {
           try { message = JSON.stringify(err) ?? 'Unknown error' } catch { message = 'Unknown error' }
         }
         send(controller, { type: 'error', error: message })
+
+        // Log the error to the run
+        if (runId) {
+          logRunError(runId, message).catch((logErr) => {
+            console.error('Failed to log run error:', logErr)
+          })
+        }
       } finally {
         controller.close()
       }
