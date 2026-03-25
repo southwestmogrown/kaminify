@@ -1,5 +1,6 @@
 import { auth } from '@clerk/nextjs/server'
 import { adminClient } from '@/lib/supabase'
+import { encryptApiKey, serialiseEncryptedKey } from '@/lib/api-key-crypto'
 
 function isValidApiKey(key: string): boolean {
   return typeof key === 'string' && key.startsWith('sk-ant-')
@@ -34,9 +35,13 @@ export async function POST(request: Request): Promise<Response> {
     })
   }
 
+  // Encrypt with AES-256-GCM before storing — plaintext never hits the DB
+  const encrypted = encryptApiKey(apiKey)
+  const stored = serialiseEncryptedKey(encrypted)
+
   const { error } = await adminClient()
     .from('users')
-    .update({ api_key: apiKey, updated_at: new Date().toISOString() })
+    .update({ api_key: stored, updated_at: new Date().toISOString() })
     .eq('clerk_user_id', userId)
 
   if (error) {

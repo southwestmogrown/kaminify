@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server'
 import { getQuotaStatus } from '@/lib/quota'
 import { adminClient } from '@/lib/supabase'
+import { deserialiseEncryptedKey, decryptApiKey } from '@/lib/api-key-crypto'
 
 export async function GET(): Promise<Response> {
   const { userId } = await auth()
@@ -21,14 +22,26 @@ export async function GET(): Promise<Response> {
       .single(),
   ])
 
+  // Decrypt the stored API key to return the plaintext to the client
+  let apiKey: string | null = null
+  if (user?.api_key) {
+    try {
+      const encrypted = deserialiseEncryptedKey(user.api_key)
+      apiKey = decryptApiKey(encrypted)
+    } catch {
+      // Encryption key was rotated or DB record is corrupt — treat as no key
+      apiKey = null
+    }
+  }
+
   return new Response(
     JSON.stringify({
       runsUsed: quota.runsUsed,
       runsLimit: quota.runsLimit,
       canRun: quota.canRun,
       tier: quota.tier,
-      hasApiKey: !!(user?.api_key),
-      apiKey: user?.api_key ?? null,   // actual key value for session re-hydration
+      hasApiKey: !!apiKey,
+      apiKey,
     }),
     {
       status: 200,

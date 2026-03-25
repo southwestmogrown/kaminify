@@ -38,7 +38,7 @@ export default function ApiKeyInput({ onSave, onClose }: ApiKeyInputProps) {
           Enter your Anthropic API key
         </h2>
         <p className="text-sm -mt-2" style={{ color: 'var(--color-text-muted)' }}>
-          Your key is stored securely on your account and never exposed in logs or shared with third parties. You control your costs and your data.
+          Your key is encrypted at rest (AES-256-GCM) on your account — plaintext never touches our servers. It&apos;s only decrypted when needed to make API calls on your behalf.
         </p>
 
         <div className="flex flex-col gap-1">
