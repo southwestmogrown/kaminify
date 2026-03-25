@@ -25,13 +25,13 @@ export default function ApiKeyInput({ onSave, onClose }: ApiKeyInputProps) {
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center z-50"
-      style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}
+      className="fixed inset-0 flex items-center justify-center z-50 animate-fade-in"
+      style={{ backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-lg border p-6 flex flex-col gap-4"
-        style={{ backgroundColor: 'var(--color-bg-elevated)', borderColor: 'var(--color-border)' }}
+        className="w-full max-w-md rounded-lg border p-6 flex flex-col gap-4 animate-scale-in"
+        style={{ backgroundColor: 'var(--color-bg-elevated)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-xl)' }}
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>
@@ -51,7 +51,7 @@ export default function ApiKeyInput({ onSave, onClose }: ApiKeyInputProps) {
             value={key}
             onChange={(e) => { setKey(e.target.value); setError('') }}
             placeholder={`${KEY_PREFIX}...`}
-            className="rounded-md border px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2"
+            className="input-field rounded-md border px-3 py-2 text-sm font-mono focus:outline-none focus:border-[var(--color-accent)]"
             style={{
               backgroundColor: 'var(--color-bg-input)',
               borderColor: error ? 'var(--color-error)' : 'var(--color-border)',
@@ -68,15 +68,13 @@ export default function ApiKeyInput({ onSave, onClose }: ApiKeyInputProps) {
         <div className="flex gap-2 justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-md text-sm border"
-            style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+            className="btn btn-secondary px-4 py-2 text-sm"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 rounded-md text-sm font-medium text-white"
-            style={{ backgroundColor: 'var(--color-accent)' }}
+            className="btn btn-primary px-4 py-2 text-sm font-medium"
           >
             Save key
           </button>

@@ -130,7 +130,7 @@ export default function UrlInputPanel({ onClone, isRunning, disabled, model, onM
             placeholder="https://stripe.com"
             value={designUrl}
             onChange={(e) => { setDesignUrl(e.target.value); setDesignError('') }}
-            className="px-3 py-2 rounded-md text-sm border focus:outline-none focus:border-[var(--color-accent)]"
+            className="input-field px-3 py-2 rounded-md text-sm border focus:outline-none focus:border-[var(--color-accent)]"
             style={{
               backgroundColor: 'var(--color-bg-input)',
               borderColor: designError ? 'var(--color-error)' : 'var(--color-border)',
@@ -159,7 +159,7 @@ export default function UrlInputPanel({ onClone, isRunning, disabled, model, onM
             placeholder="https://your-site.com"
             value={contentUrl}
             onChange={(e) => { setContentUrl(e.target.value); setContentError('') }}
-            className="px-3 py-2 rounded-md text-sm border focus:outline-none focus:border-[var(--color-accent)]"
+            className="input-field px-3 py-2 rounded-md text-sm border focus:outline-none focus:border-[var(--color-accent)]"
             style={{
               backgroundColor: 'var(--color-bg-input)',
               borderColor: contentError ? 'var(--color-error)' : 'var(--color-border)',
@@ -190,8 +190,8 @@ export default function UrlInputPanel({ onClone, isRunning, disabled, model, onM
             onClick={pickRandom}
             aria-label="Random example"
             title="Pick a random pairing"
-            className="flex items-center justify-center w-6 h-6 rounded border transition-colors hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
-            style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)', backgroundColor: 'transparent' }}
+            className="btn btn-ghost flex items-center justify-center w-6 h-6 rounded border"
+            style={{ borderColor: 'var(--color-border)' }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <polyline points="16 3 21 3 21 8" />
@@ -202,71 +202,68 @@ export default function UrlInputPanel({ onClone, isRunning, disabled, model, onM
           </button>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {EXAMPLES.map((ex) => (
-            <button
-              key={ex.label}
-              type="button"
-              onClick={() => applyExample(ex.design, ex.content)}
-              className="px-3 py-1 rounded-full text-xs border transition-colors hover:border-[var(--color-accent)] hover:text-[var(--color-text-primary)]"
-              style={{
-                borderColor: 'var(--color-border)',
-                color: 'var(--color-text-secondary)',
-                backgroundColor: 'transparent',
-              }}
-            >
-              {ex.label}
-            </button>
-          ))}
+          {EXAMPLES.map((ex) => {
+            const isSelected = designUrl === ex.design && contentUrl === ex.content
+            return (
+              <button
+                key={ex.label}
+                type="button"
+                onClick={() => applyExample(ex.design, ex.content)}
+                className="btn px-3 py-1 rounded-full text-xs border"
+                style={{
+                  borderColor: isSelected ? 'var(--color-accent)' : 'var(--color-border)',
+                  color: isSelected ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+                  backgroundColor: isSelected ? 'var(--color-accent-dim)' : 'transparent',
+                }}
+              >
+                {ex.label}
+              </button>
+            )
+          })}
         </div>
       </div>
 
       {/* Model selector + Clone button row */}
       <div className="flex gap-3 items-center">
-        <div className="flex items-center gap-2">
-          <select
-            value={model}
-            onChange={(e) => onModelChange(e.target.value)}
-            disabled={!hasApiKey || isRunning}
-            className="px-3 py-2.5 rounded-md text-sm border focus:outline-none focus:border-[var(--color-accent)] disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{
-              backgroundColor: 'var(--color-bg-input)',
-              borderColor: 'var(--color-border)',
-              color: 'var(--color-text-primary)',
-            }}
-            aria-label="Model"
-          >
-            {hasApiKey
-              ? MODEL_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))
-              : <option value="claude-haiku-4-5-20251001">Haiku (fast)</option>
-            }
-          </select>
-        </div>
+        <select
+          value={model}
+          onChange={(e) => onModelChange(e.target.value)}
+          disabled={!hasApiKey || isRunning}
+          className="input-field px-3 py-2.5 rounded-md text-sm border focus:outline-none focus:border-[var(--color-accent)] disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            backgroundColor: 'var(--color-bg-input)',
+            borderColor: 'var(--color-border)',
+            color: 'var(--color-text-primary)',
+          }}
+          aria-label="Model"
+        >
+          {hasApiKey
+            ? MODEL_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))
+            : <option value="claude-haiku-4-5-20251001">Haiku (fast)</option>
+          }
+        </select>
 
-      <button
-        type="button"
-        onClick={handleSubmit}
-        disabled={!canSubmit}
-        className="flex-1 py-2.5 rounded-md text-sm font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        style={{
-          backgroundColor: canSubmit ? 'var(--color-accent)' : 'var(--color-bg-elevated)',
-          color: canSubmit ? '#000' : 'var(--color-text-muted)',
-        }}
-      >
-        {isRunning && (
-          <svg
-            aria-label="running"
-            className="w-4 h-4 animate-spin"
-            viewBox="0 0 24 24"
-            fill="none"
-          >
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-          </svg>
-        )}
-        {isRunning ? 'Cloning…' : 'Clone'}
-      </button>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={!canSubmit}
+          className="btn btn-primary flex-1 py-2.5 text-sm font-semibold"
+        >
+          {isRunning && (
+            <svg
+              aria-label="running"
+              className="w-4 h-4 animate-spin"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+            </svg>
+          )}
+          {isRunning ? 'Cloning…' : 'Clone'}
+        </button>
       </div>
     </div>
   )

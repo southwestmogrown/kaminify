@@ -192,7 +192,7 @@ export default function Home() {
       pushEvent({ type: 'status', message: 'Scraping and preparing...' })
 
       const effectiveModel = modelOverride ?? model
-    const params = new URLSearchParams({ designUrl, contentUrl, model: effectiveModel })
+      const params = new URLSearchParams({ designUrl, contentUrl, model: effectiveModel })
       if (sessionId) params.set('sessionId', sessionId)
       const prepRes = await fetch(`/api/prepare?${params}`, {
         headers,
@@ -478,12 +478,7 @@ export default function Home() {
           {isSignedIn && (
             <button
               onClick={openMySites}
-              className="text-xs px-3 py-1.5 rounded-md border transition-colors"
-              style={{
-                color: 'var(--color-text-secondary)',
-                borderColor: 'var(--color-border-bright)',
-                backgroundColor: 'transparent',
-              }}
+              className="btn btn-secondary text-xs px-3 py-1.5"
             >
               My Sites
             </button>
@@ -491,8 +486,7 @@ export default function Home() {
           {isSignedIn && apiKey && (
             <button
               onClick={handleClearApiKey}
-              className="text-xs"
-              style={{ color: 'var(--color-text-muted)' }}
+              className="btn btn-ghost text-xs px-2 py-1"
             >
               Remove API key
             </button>
@@ -501,22 +495,7 @@ export default function Home() {
             <UserButton />
           ) : (
             <SignInButton mode="redirect">
-              <button
-                className="text-xs px-3 py-1.5 rounded-md border transition-colors"
-                style={{
-                  color: 'var(--color-text-secondary)',
-                  borderColor: 'var(--color-border-bright)',
-                  backgroundColor: 'transparent',
-                }}
-                onMouseEnter={e => {
-                  (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-accent)'
-                  ;(e.currentTarget as HTMLButtonElement).style.color = 'var(--color-accent)'
-                }}
-                onMouseLeave={e => {
-                  (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-border-bright)'
-                  ;(e.currentTarget as HTMLButtonElement).style.color = 'var(--color-text-secondary)'
-                }}
-              >
+              <button className="btn btn-secondary text-xs px-3 py-1.5">
                 Sign in / Sign up
               </button>
             </SignInButton>
@@ -603,8 +582,7 @@ export default function Home() {
             <button
               onClick={handleDownload}
               disabled={isDownloading}
-              className="px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50"
-              style={{ backgroundColor: 'var(--color-accent)', color: '#000' }}
+              className="btn btn-primary px-4 py-2 text-sm font-medium"
             >
               {isDownloading ? 'Preparing ZIP…' : 'Download ZIP'}
             </button>
@@ -629,7 +607,7 @@ export default function Home() {
               {isRunning && (
                 <button
                   onClick={() => { abortRef.current?.abort(); setIsRunning(false) }}
-                  className="px-2 py-0.5 rounded text-xs font-medium"
+                  className="btn px-2 py-0.5 rounded text-xs font-medium"
                   style={{ backgroundColor: 'var(--color-error)', color: '#fff' }}
                 >
                   Stop
@@ -665,9 +643,9 @@ export default function Home() {
           className="fixed inset-0 z-50 flex justify-end"
           onClick={() => setShowMySites(false)}
         >
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in" />
           <div
-            className="relative w-full max-w-md h-full overflow-y-auto border-l flex flex-col"
+            className="relative w-full max-w-md h-full overflow-y-auto border-l flex flex-col animate-slide-in-right"
             style={{ backgroundColor: 'var(--color-bg-elevated)', borderColor: 'var(--color-border)' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -678,8 +656,7 @@ export default function Home() {
               <h2 className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>My Sites</h2>
               <button
                 onClick={() => setShowMySites(false)}
-                className="text-xs px-2 py-1 rounded"
-                style={{ color: 'var(--color-text-muted)' }}
+                className="btn btn-ghost text-xs px-2 py-1"
               >
                 ✕
               </button>
@@ -699,7 +676,7 @@ export default function Home() {
                   {mySites.map((site) => (
                     <div
                       key={site.id}
-                      className="rounded-lg border p-4 flex flex-col gap-2"
+                      className="card-interactive rounded-lg border p-4 flex flex-col gap-2"
                       style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
                     >
                       <div className="flex items-start justify-between gap-2">
@@ -731,11 +708,7 @@ export default function Home() {
                       <div className="flex gap-2 mt-1">
                         <button
                           onClick={() => openSite(site as Site & { runs?: Run[] })}
-                          className="text-xs px-3 py-1 rounded border transition-colors"
-                          style={{
-                            borderColor: 'var(--color-border-bright)',
-                            color: 'var(--color-text-secondary)',
-                          }}
+                          className="btn btn-secondary text-xs px-3 py-1"
                         >
                           {expandedSiteId === site.id ? 'Hide' : 'Show'} runs
                         </button>
@@ -745,11 +718,7 @@ export default function Home() {
                               setRegeneratingFrom(site as Site & { runs?: Run[] })
                               setShowMySites(false)
                             }}
-                            className="text-xs px-3 py-1 rounded border transition-colors"
-                            style={{
-                              borderColor: 'var(--color-border-bright)',
-                              color: 'var(--color-text-secondary)',
-                            }}
+                            className="btn btn-secondary text-xs px-3 py-1"
                           >
                             Regenerate
                           </button>
@@ -759,8 +728,7 @@ export default function Home() {
                             const newName = window.prompt('Rename site:', site.name)
                             if (newName?.trim()) handleRenameSite(site.id, newName.trim())
                           }}
-                          className="text-xs px-3 py-1 rounded"
-                          style={{ color: 'var(--color-text-muted)' }}
+                          className="btn btn-ghost text-xs px-3 py-1"
                         >
                           Rename
                         </button>
@@ -768,8 +736,7 @@ export default function Home() {
                           onClick={() => {
                             if (window.confirm('Delete this site?')) handleDeleteSite(site.id)
                           }}
-                          className="text-xs px-3 py-1 rounded ml-auto"
-                          style={{ color: 'var(--color-error)' }}
+                          className="btn btn-danger text-xs px-3 py-1 ml-auto"
                         >
                           Delete
                         </button>

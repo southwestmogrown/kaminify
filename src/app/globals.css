@@ -5,6 +5,7 @@
   --color-bg-base: #07080d;
   --color-bg-primary: #0d0f18;
   --color-bg-elevated: #12141f;
+  --color-bg-surface: #161824;
   --color-bg-input: #0d0f18;
   --color-bg-hover: rgba(255,255,255,0.04);
 
@@ -27,6 +28,20 @@
   --color-success: #1d9e75;
   --color-warning: #D29922;
   --color-error: #F85149;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.1);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.25), 0 2px 4px rgba(0,0,0,0.15);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.35), 0 4px 8px rgba(0,0,0,0.2);
+  --shadow-xl: 0 16px 48px rgba(0,0,0,0.4), 0 8px 16px rgba(0,0,0,0.25);
+  --shadow-glow: 0 0 20px rgba(249,115,22,0.15), 0 0 40px rgba(249,115,22,0.05);
+
+  /* Transitions */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 350ms;
 }
 
 @theme inline {
@@ -67,10 +82,56 @@ body::after {
   mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 0%, transparent 70%);
 }
 
-/* Logo dot animation */
+/* ============================================================
+   Global focus ring
+   ============================================================ */
+*:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   Animations
+   ============================================================ */
 @keyframes logo-pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.6; transform: scale(0.85); }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up var(--duration-base) var(--ease-out) both;
+}
+
+.animate-fade-in {
+  animation: fade-in var(--duration-base) var(--ease-out) both;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right var(--duration-slow) var(--ease-out) both;
+}
+
+.animate-scale-in {
+  animation: scale-in var(--duration-base) var(--ease-out) both;
 }
 
 .logo-dot {
@@ -83,7 +144,110 @@ body::after {
   flex-shrink: 0;
 }
 
-/* Clerk modal overrides */
+/* ============================================================
+   Button system
+   ============================================================ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+  user-select: none;
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Primary: orange filled */
+.btn-primary {
+  background-color: var(--color-accent);
+  color: #000;
+}
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--color-accent-hover);
+  box-shadow: var(--shadow-glow);
+}
+
+/* Secondary: border outline */
+.btn-secondary {
+  background-color: transparent;
+  border: 1px solid var(--color-border-bright);
+  color: var(--color-text-secondary);
+}
+.btn-secondary:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background-color: var(--color-accent-dim);
+}
+
+/* Ghost: no border, subtle bg on hover */
+.btn-ghost {
+  background-color: transparent;
+  color: var(--color-text-muted);
+}
+.btn-ghost:hover:not(:disabled) {
+  background-color: var(--color-bg-hover);
+  color: var(--color-text-secondary);
+}
+
+/* Danger: red on hover */
+.btn-danger {
+  background-color: transparent;
+  color: var(--color-text-muted);
+}
+.btn-danger:hover:not(:disabled) {
+  background-color: rgba(248, 81, 73, 0.1);
+  color: var(--color-error);
+}
+
+/* ============================================================
+   Interactive card
+   ============================================================ */
+.card-interactive {
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
+}
+.card-interactive:hover {
+  border-color: var(--color-border-bright);
+  box-shadow: var(--shadow-sm);
+  background-color: var(--color-bg-surface);
+}
+
+/* ============================================================
+   Input hover
+   ============================================================ */
+.input-field {
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
+}
+.input-field:hover:not(:focus) {
+  border-color: var(--color-border-bright);
+  background-color: var(--color-bg-elevated);
+}
+
+/* ============================================================
+   Clerk modal overrides
+   ============================================================ */
 .cl-providerIcon {
   filter: brightness(0) saturate(100%) invert(56%) sepia(84%) saturate(1400%) hue-rotate(345deg) brightness(103%);
 }

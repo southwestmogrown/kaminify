@@ -41,7 +41,7 @@ export default function DemoBanner({ runsUsed, runLimit, hasApiKey, isSignedIn, 
           <span> </span>
           <button
             onClick={onOpenApiKeyInput}
-            className="underline cursor-pointer"
+            className="underline cursor-pointer transition-colors hover:brightness-125"
             style={{ color: 'var(--color-accent)' }}
           >
             Add your API key to continue →
@@ -57,7 +57,7 @@ export default function DemoBanner({ runsUsed, runLimit, hasApiKey, isSignedIn, 
         <span> </span>
         <button
           onClick={onOpenApiKeyInput}
-          className="underline cursor-pointer"
+          className="underline cursor-pointer transition-colors hover:brightness-125"
           style={{ color: 'var(--color-accent)' }}
         >
           {runsUsed >= (runLimit ?? 0) - 1 ? 'Add your API key →' : 'Add your own API key →'}
@@ -77,7 +77,7 @@ export default function DemoBanner({ runsUsed, runLimit, hasApiKey, isSignedIn, 
           <span> · </span>
           <button
             onClick={onOpenApiKeyInput}
-            className="underline cursor-pointer"
+            className="underline cursor-pointer transition-colors hover:brightness-125"
             style={{ color: 'var(--color-accent)' }}
           >
             Sign in / Sign up to continue →
