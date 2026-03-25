@@ -279,7 +279,9 @@ export default function Home() {
         pushEvent({ type: 'done' })
       }
     } catch (err: unknown) {
-      if (!(err instanceof Error && err.name === 'AbortError')) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        pushEvent({ type: 'status', message: 'Cancelled' })
+      } else {
         pushEvent({ type: 'error', error: err instanceof Error ? err.message : 'Unknown error' })
       }
     } finally {
