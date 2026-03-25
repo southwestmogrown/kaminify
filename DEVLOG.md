@@ -24,6 +24,58 @@
 
 ## Entries
 
+### [docs/beta-prep] Beta launch prep — README rewrite, SKILL update, landing page context — 2026-03-25 [STAGING]
+
+**Goal:** Prepare for beta by updating documentation and agent skills.
+
+**What was built:**
+
+- **`README.md`** — full rewrite for beta. Reflects Phase 2 auth (Clerk + Supabase), AES-256-GCM BYOK encryption, server-enforced quotas, model selector (Haiku/Sonnet/Opus), JS-rendered site support via Browserless + Sonnet vision pipeline, updated environment variables table.
+- **`skills/SKILL_mini-coder-max.md`** — replaced generic agent template with kaminify-specific skill. Includes: project context (stack, key files), auth patterns (anonymous vs signed-in vs BYOK), Supabase/Clerk/Sentry integration notes, SSE streaming patterns, AES-256-GCM encryption notes, anti-patterns (sessionStorage BYOK, modifying legacy `/api/clone`, bypassing `adminClient()`), and implement → lint → typecheck → test workflow.
+- **`LANDING_PAGE_CONTEXT.md`** — beta launch context for landing page update. Includes: product summary + tagline, access modes table, visual identity palette, suggested demo pairings, CTA direction ("Try it now" → app.kaminify.com, no waitlist), what NOT to say (no pricing, no "coming soon"), and technical details for SEO.
+
+**`CONTEXT.md`** (app-dev agent context) intentionally left untracked — internal use only.
+
+---
+
+### [feat/phase2-auth-complete] Phase 2 Auth complete + API key encryption at rest — 2026-03-25 [STAGING]
+
+**Goal:** Complete the auth journey: API key CRUD tied to signed-in users, remove all sessionStorage BYOK for anonymous users, encrypt keys at rest.
+
+**What was built:**
+
+- `src/lib/auth.ts` — `getClerkUserId()` / `requireClerkUserId()` using `@clerk/backend verifyToken()`; validates Clerk JWT from `Authorization: Bearer` header on API routes
+- `src/app/api/me/route.ts` (GET) — returns signed-in user's quota status + decrypted API key; `GET /api/me` called on page mount to hydrate signed-in state
+- `src/app/api/me/api-key/route.ts` (POST/DELETE) — save or clear user's API key on their Supabase `users` record; key validated as `sk-ant-...` format before accepting
+- `src/app/api/prepare/route.ts` + `src/app/api/compose/route.ts` — Clerk auth path: verify JWT → check quota → increment run on success; BYOK path: `x-api-key` header (no quota); anonymous demo: no auth (client-side sessionStorage enforcement)
+- `src/app/page.tsx` — `GET /api/me` called on mount for signed-in users; Clerk JWT passed as `Authorization: Bearer` header; `handleSaveApiKey`/`handleClearApiKey` persist to server for signed-in users only
+- `src/components/DemoBanner.tsx` — anonymous users: demo runs only (no key management), limit reached prompts "Sign in / Sign up to continue"; signed-in users: quota state from server, key management available after sign-in
+- `src/app/privacy/page.tsx` — privacy policy page covering API key encryption, Clerk auth data, data retention
+
+**API key encryption (security fix):**
+- `src/lib/api-key-crypto.ts` — `encryptApiKey()` / `decryptApiKey()` using AES-256-GCM with a KEK derived from `API_KEY_KEK` env var; IV generated fresh per encryption; auth tag for tamper detection
+- DB stores `{ciphertext, iv, authTag}` JSON — plaintext never touches the DB
+- `GET /api/me` decrypts on read; graceful fallback if decryption fails (key rotation or corrupt record)
+- `POST /api/me/api-key` encrypts before storing; `DELETE` clears as before
+- `.env.example` created with all env vars documented including `API_KEY_KEK` generation instructions
+
+**User flow (Beta):**
+1. Anonymous → 3 demo runs (sessionStorage)
+2. Runs exhausted → "Sign in / Sign up to continue" → Clerk modal
+3. Signed in (no key yet) → 3 free runs (server-enforced), "Add your own API key" prompt
+4. Signed in + key saved → unlimited runs, key encrypted at rest
+
+**SQL migration required:**
+```sql
+ALTER TABLE users ADD COLUMN IF NOT EXISTS api_key TEXT;
+```
+
+**New env vars:**
+- `API_KEY_KEK` — 64-char hex key; generate with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+- `SENTRY_DSN` — Sentry project DSN for error tracking
+
+---
+
 ### [feat/extraction-composition-iteration] Extraction/composition iteration pass — 2026-03-24 [STAGING]
 
 **Problem:** Cloned pages rendered as white pages with default fonts. The donor site's visual design was not carrying over. Root cause: five compounding information-loss points between the donor site CSS and what Claude received.
