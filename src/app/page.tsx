@@ -37,6 +37,7 @@ export default function Home() {
   const [mySites, setMySites] = useState<(Site & { runs?: Run[] })[]>([])
   const [loadingSites, setLoadingSites] = useState(false)
   const [expandedSiteId, setExpandedSiteId] = useState<string | null>(null)
+  const [regeneratingFrom, setRegeneratingFrom] = useState<(Site & { runs?: Run[] }) | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
   // Hydrate quota state from server for signed-in users; sessionStorage for anonymous
@@ -91,6 +92,20 @@ export default function Home() {
   useEffect(() => {
     setSessionId(getOrCreateSessionId())
   }, [])
+
+  // Auto-trigger clone when user clicks "Regenerate" on a saved site
+  useEffect(() => {
+    if (regeneratingFrom) {
+      setModel(regeneratingFrom.model)
+      // Use setTimeout to let React flush the state update first
+      const timeout = setTimeout(() => {
+        if (regeneratingFrom) {
+          startClone(regeneratingFrom.design_url, regeneratingFrom.content_url)
+        }
+      }, 0)
+      return () => clearTimeout(timeout)
+    }
+  }, [regeneratingFrom]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     return () => { abortRef.current?.abort() }
@@ -438,17 +453,19 @@ export default function Home() {
           Clone any site&apos;s design. Keep your content.
         </span>
         <div className="ml-auto flex items-center gap-3">
-          <button
-            onClick={openMySites}
-            className="text-xs px-3 py-1.5 rounded-md border transition-colors"
-            style={{
-              color: 'var(--color-text-secondary)',
-              borderColor: 'var(--color-border-bright)',
-              backgroundColor: 'transparent',
-            }}
-          >
-            My Sites
-          </button>
+          {isSignedIn && (
+            <button
+              onClick={openMySites}
+              className="text-xs px-3 py-1.5 rounded-md border transition-colors"
+              style={{
+                color: 'var(--color-text-secondary)',
+                borderColor: 'var(--color-border-bright)',
+                backgroundColor: 'transparent',
+              }}
+            >
+              My Sites
+            </button>
+          )}
           {isSignedIn && apiKey && (
             <button
               onClick={handleClearApiKey}
@@ -555,6 +572,9 @@ export default function Home() {
           model={model}
           onModelChange={setModel}
           hasApiKey={!!apiKey}
+          prefillDesign={regeneratingFrom?.design_url}
+          prefillContent={regeneratingFrom?.content_url}
+          onPrefillConsumed={() => setRegeneratingFrom(null)}
         />
         {!isRunning && pages.length > 0 && (
           <div className="mt-4 flex justify-end">
@@ -697,6 +717,21 @@ export default function Home() {
                         >
                           {expandedSiteId === site.id ? 'Hide' : 'Show'} runs
                         </button>
+                        {isSignedIn && (
+                          <button
+                            onClick={() => {
+                              setRegeneratingFrom(site as Site & { runs?: Run[] })
+                              setShowMySites(false)
+                            }}
+                            className="text-xs px-3 py-1 rounded border transition-colors"
+                            style={{
+                              borderColor: 'var(--color-border-bright)',
+                              color: 'var(--color-text-secondary)',
+                            }}
+                          >
+                            Regenerate
+                          </button>
+                        )}
                         <button
                           onClick={() => {
                             const newName = window.prompt('Rename site:', site.name)
