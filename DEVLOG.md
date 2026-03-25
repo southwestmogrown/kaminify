@@ -24,6 +24,20 @@
 
 ## Entries
 
+### [docs/beta-prep] Beta launch prep — README rewrite, SKILL update, landing page context — 2026-03-25 [STAGING]
+
+**Goal:** Prepare for beta by updating documentation and agent skills.
+
+**What was built:**
+
+- **`README.md`** — full rewrite for beta. Reflects Phase 2 auth (Clerk + Supabase), AES-256-GCM BYOK encryption, server-enforced quotas, model selector (Haiku/Sonnet/Opus), JS-rendered site support via Browserless + Sonnet vision pipeline, updated environment variables table.
+- **`skills/SKILL_mini-coder-max.md`** — replaced generic agent template with kaminify-specific skill. Includes: project context (stack, key files), auth patterns (anonymous vs signed-in vs BYOK), Supabase/Clerk/Sentry integration notes, SSE streaming patterns, AES-256-GCM encryption notes, anti-patterns (sessionStorage BYOK, modifying legacy `/api/clone`, bypassing `adminClient()`), and implement → lint → typecheck → test workflow.
+- **`LANDING_PAGE_CONTEXT.md`** — beta launch context for landing page update. Includes: product summary + tagline, access modes table, visual identity palette, suggested demo pairings, CTA direction ("Try it now" → app.kaminify.com, no waitlist), what NOT to say (no pricing, no "coming soon"), and technical details for SEO.
+
+**`CONTEXT.md`** (app-dev agent context) intentionally left untracked — internal use only.
+
+---
+
 ### [feat/phase2-auth-complete] Phase 2 Auth complete + API key encryption at rest — 2026-03-25 [STAGING]
 
 **Goal:** Complete the auth journey: API key CRUD tied to signed-in users, remove all sessionStorage BYOK for anonymous users, encrypt keys at rest.
