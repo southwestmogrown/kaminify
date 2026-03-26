@@ -1,8 +1,16 @@
 import Stripe from 'stripe'
 import { adminClient } from './supabase'
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-01-27.acacia' as Stripe.LatestApiVersion,
+let _stripe: Stripe | null = null
+export const stripe: Stripe = new Proxy({} as Stripe, {
+  get(_target, prop) {
+    if (!_stripe) {
+      _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+        apiVersion: '2025-01-27.acacia' as Stripe.LatestApiVersion,
+      })
+    }
+    return Reflect.get(_stripe, prop)
+  },
 })
 
 export const PRICE_ID = process.env.STRIPE_PRICE_ID!
