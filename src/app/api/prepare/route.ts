@@ -8,6 +8,7 @@ import { adminClient } from '@/lib/supabase'
 import { logPrepareRun } from '@/lib/site-storage'
 import { deserialiseEncryptedKey, decryptApiKey } from '@/lib/api-key-crypto'
 import type { DesignSystem, DiscoveredPage, PageContent } from '@/lib/types'
+import { checkRateLimit, getRateLimitId } from '@/lib/rateLimit'
 
 const BYOK_MODELS = ['claude-haiku-4-5-20251001', 'claude-sonnet-4-6', 'claude-opus-4-6']
 
@@ -112,6 +113,14 @@ export async function GET(request: Request): Promise<Response> {
     return new Response(JSON.stringify({ error: 'No API key available' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  const { limited, retryAfter } = await checkRateLimit(getRateLimitId(request, signedInUserId))
+  if (limited) {
+    return new Response(JSON.stringify({ error: 'Too many requests' }), {
+      status: 429,
+      headers: { 'Content-Type': 'application/json', 'Retry-After': String(retryAfter) },
     })
   }
 

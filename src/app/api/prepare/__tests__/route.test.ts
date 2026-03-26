@@ -13,12 +13,17 @@ vi.mock('@/lib/extractor', () => ({
   extractDesignSystem: vi.fn(),
   extractPageContent: vi.fn(),
 }))
+vi.mock('@/lib/rateLimit', () => ({
+  checkRateLimit: vi.fn(),
+  getRateLimitId: vi.fn(),
+}))
 
 import { GET } from '../route'
 import { scrapeSite } from '@/lib/scraper'
 import { scrapeWithBrowser } from '@/lib/browserScraper'
 import { discoverPages } from '@/lib/discover'
 import { extractDesignSystem, extractPageContent } from '@/lib/extractor'
+import { checkRateLimit, getRateLimitId } from '@/lib/rateLimit'
 import type { ScrapedSite, DiscoveredPage, DesignSystem, PageContent } from '@/lib/types'
 
 const mockScrapeSite = vi.mocked(scrapeSite)
@@ -26,6 +31,8 @@ const mockScrapeWithBrowser = vi.mocked(scrapeWithBrowser)
 const mockDiscoverPages = vi.mocked(discoverPages)
 const mockExtractDesignSystem = vi.mocked(extractDesignSystem)
 const mockExtractPageContent = vi.mocked(extractPageContent)
+const mockCheckRateLimit = vi.mocked(checkRateLimit)
+const mockGetRateLimitId = vi.mocked(getRateLimitId)
 
 const fakeSite: ScrapedSite = { url: 'https://example.com', html: '<html/>', css: '', title: 'Test', jsRendered: false }
 const fakePages: DiscoveredPage[] = [
@@ -51,6 +58,8 @@ function makeRequest(params: Record<string, string>, headers: Record<string, str
 beforeEach(() => {
   vi.clearAllMocks()
   delete process.env.ANTHROPIC_API_KEY
+  mockCheckRateLimit.mockResolvedValue({ limited: false, retryAfter: 0 })
+  mockGetRateLimitId.mockReturnValue('ip:127.0.0.1')
 })
 
 describe('GET /api/prepare', () => {
@@ -200,5 +209,28 @@ describe('GET /api/prepare', () => {
 
     const res = await GET(makeRequest({ designUrl: 'https://stripe.com', contentUrl: 'https://example.com' }))
     expect(res.status).toBe(500)
+  })
+
+  it('returns 429 when rate limiter rejects the request', async () => {
+    process.env.ANTHROPIC_API_KEY = 'test-key'
+    mockCheckRateLimit.mockResolvedValue({ limited: true, retryAfter: 30 })
+
+    const res = await GET(makeRequest({ designUrl: 'https://stripe.com', contentUrl: 'https://example.com' }))
+    expect(res.status).toBe(429)
+    const body = await res.json()
+    expect(body.error).toMatch(/Too many requests/)
+    expect(res.headers.get('Retry-After')).toBe('30')
+  })
+
+  it('passes through when rate limiter allows the request', async () => {
+    process.env.ANTHROPIC_API_KEY = 'test-key'
+    mockCheckRateLimit.mockResolvedValue({ limited: false, retryAfter: 0 })
+    mockScrapeSite.mockResolvedValue(fakeSite)
+    mockDiscoverPages.mockReturnValue(fakePages)
+    mockExtractDesignSystem.mockReturnValue(fakeDesign)
+    mockExtractPageContent.mockReturnValue(fakeContent)
+
+    const res = await GET(makeRequest({ designUrl: 'https://stripe.com', contentUrl: 'https://example.com' }))
+    expect(res.status).toBe(200)
   })
 })
