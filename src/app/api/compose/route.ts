@@ -4,6 +4,7 @@ import { adminClient } from '@/lib/supabase'
 import { deserialiseEncryptedKey, decryptApiKey } from '@/lib/api-key-crypto'
 import { logComposePage, logRunError } from '@/lib/site-storage'
 import type { CloneEvent, ClonedPage, DesignSystem, DiscoveredPage, PageContent } from '@/lib/types'
+import { checkRateLimit, getRateLimitId } from '@/lib/rateLimit'
 
 const encoder = new TextEncoder()
 
@@ -71,6 +72,14 @@ export async function POST(request: Request): Promise<Response> {
 
   if (!effectiveApiKey) {
     return new Response('Unauthorized', { status: 401 })
+  }
+
+  const { limited, retryAfter } = await checkRateLimit(getRateLimitId(request, signedInUserId))
+  if (limited) {
+    return new Response(JSON.stringify({ error: 'Too many requests' }), {
+      status: 429,
+      headers: { 'Content-Type': 'application/json', 'Retry-After': String(retryAfter) },
+    })
   }
 
   let body: ComposeBody

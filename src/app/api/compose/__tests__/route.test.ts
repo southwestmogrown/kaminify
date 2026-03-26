@@ -3,12 +3,19 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('@/lib/composer', () => ({
   composePage: vi.fn(),
 }))
+vi.mock('@/lib/rateLimit', () => ({
+  checkRateLimit: vi.fn(),
+  getRateLimitId: vi.fn(),
+}))
 
 import { POST } from '../route'
 import { composePage } from '@/lib/composer'
+import { checkRateLimit, getRateLimitId } from '@/lib/rateLimit'
 import type { ScrapedSite, DiscoveredPage, DesignSystem, PageContent } from '@/lib/types'
 
 const mockComposePage = vi.mocked(composePage)
+const mockCheckRateLimit = vi.mocked(checkRateLimit)
+const mockGetRateLimitId = vi.mocked(getRateLimitId)
 
 const fakeSite: ScrapedSite = { url: 'https://example.com', html: '<html/>', css: '', title: 'Test', jsRendered: false }
 void fakeSite // used as reference fixture only
@@ -55,6 +62,8 @@ function parseEvents(raw: string) {
 beforeEach(() => {
   vi.clearAllMocks()
   delete process.env.ANTHROPIC_API_KEY
+  mockCheckRateLimit.mockResolvedValue({ limited: false, retryAfter: 0 })
+  mockGetRateLimitId.mockReturnValue('ip:127.0.0.1')
 })
 
 describe('POST /api/compose', () => {
@@ -230,5 +239,26 @@ describe('POST /api/compose', () => {
     expect(mockComposePage).toHaveBeenCalledWith(
       expect.anything(), expect.anything(), expect.anything(), expect.any(String), 'claude-sonnet-4-6', screenshots
     )
+  })
+
+  it('returns 429 when rate limiter rejects the request', async () => {
+    process.env.ANTHROPIC_API_KEY = 'test-key'
+    mockCheckRateLimit.mockResolvedValue({ limited: true, retryAfter: 45 })
+
+    const res = await POST(makeRequest({ designSystem: fakeDesign, pageContent: fakeContent, allPages: fakePages }))
+    expect(res.status).toBe(429)
+    const body = await res.json()
+    expect(body.error).toMatch(/Too many requests/)
+    expect(res.headers.get('Retry-After')).toBe('45')
+  })
+
+  it('passes through when rate limiter allows the request', async () => {
+    process.env.ANTHROPIC_API_KEY = 'test-key'
+    mockCheckRateLimit.mockResolvedValue({ limited: false, retryAfter: 0 })
+    mockComposePage.mockResolvedValue(fakeHtml)
+
+    const res = await POST(makeRequest({ designSystem: fakeDesign, pageContent: fakeContent, allPages: fakePages }))
+    expect(res.status).toBe(200)
+    await collectStream(res)
   })
 })
