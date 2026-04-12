@@ -57,7 +57,11 @@ const mockedAdminClient = vi.mocked(adminClient)
 
 // --- Helpers -----------------------------------------------------------------
 
-/** Returns YYYY-MM-01 for the current UTC month so tests don't drift. */
+/**
+ * Returns YYYY-MM-01 for the current UTC month.
+ * Using a dynamic date prevents test failures when hardcoded months (e.g. '2026-03-01')
+ * become past months and trigger the quota module's monthly-reset logic.
+ */
 function currentMonthStart(): string {
   const now = new Date()
   return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`
