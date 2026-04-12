@@ -242,4 +242,67 @@ describe('scrapeSite', () => {
     const result = await scrapeSite('https://example.com')
     expect(result.jsRendered).toBe(true)
   })
+
+  it('handles a stylesheet fetch that rejects (network error)', async () => {
+    const html = `
+      <html>
+        <head>
+          <link rel="stylesheet" href="/network-err.css" />
+          <link rel="stylesheet" href="/ok.css" />
+        </head>
+        <body><p>Content</p></body>
+      </html>
+    `
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((url: string) => {
+        if (url === 'https://example.com') return Promise.resolve(makeResponse(html))
+        if (url === 'https://example.com/network-err.css')
+          return Promise.reject(new Error('Network error'))
+        if (url === 'https://example.com/ok.css')
+          return Promise.resolve(makeResponse('.ok { display: block; }'))
+        return Promise.resolve(makeResponse('', false, 404))
+      })
+    )
+    const result = await scrapeSite('https://example.com')
+    // The ok stylesheet is included; the rejected one is silently skipped
+    expect(result.css).toContain('.ok { display: block; }')
+  })
+
+  it('skips malformed stylesheet href values', async () => {
+    const html = `
+      <html>
+        <head>
+          <link rel="stylesheet" href="://invalid" />
+        </head>
+        <body><p>Content</p></body>
+      </html>
+    `
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeResponse(html)))
+    // Should not throw
+    const result = await scrapeSite('https://example.com')
+    expect(result.html).toContain('<p>Content</p>')
+  })
+
+  it('concatenates multiple inline styles', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        makeResponse(
+          '<html><head><style>a { color: red; }</style><style>b { color: blue; }</style></head><body></body></html>'
+        )
+      )
+    )
+    const result = await scrapeSite('https://example.com')
+    expect(result.css).toContain('a { color: red; }')
+    expect(result.css).toContain('b { color: blue; }')
+  })
+
+  it('propagates non-abort errors from fetch', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockRejectedValue(new Error('DNS resolution failed'))
+    )
+    await expect(scrapeSite('https://example.com')).rejects.toThrow('DNS resolution failed')
+  })
 })

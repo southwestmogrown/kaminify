@@ -453,3 +453,117 @@ describe('extractDesignSystem new fields', () => {
     expect(ds.rawCss).toBeDefined()
   })
 })
+
+describe('extractDesignSystem — edge cases', () => {
+  it('handles completely empty CSS gracefully', () => {
+    const site = makeSite('<html><body></body></html>', '')
+    const ds = extractDesignSystem(site)
+    expect(ds.colorPalette).toEqual([])
+    expect(ds.fontStack).toEqual([])
+    expect(ds.spacing).toEqual([])
+    expect(ds.borderRadius).toEqual([])
+    expect(ds.cssVariables).toBe('')
+  })
+
+  it('handles 8-digit hex values (with alpha)', () => {
+    const site = makeSite('', 'div { color: #1F6FEB80; }')
+    const ds = extractDesignSystem(site)
+    // Should normalize to 6-digit
+    expect(ds.colorPalette.some(c => c.startsWith('#1f6feb'))).toBe(true)
+  })
+
+  it('deduplicates colors', () => {
+    const site = makeSite('', 'div { color: #ff0000; background: #ff0000; }')
+    const ds = extractDesignSystem(site)
+    const redCount = ds.colorPalette.filter(c => c === '#ff0000').length
+    expect(redCount).toBe(1)
+  })
+
+  it('extracts multiple :root blocks', () => {
+    const css = ':root { --a: 1; }\n:root { --b: 2; }'
+    const site = makeSite('', css)
+    const ds = extractDesignSystem(site)
+    expect(ds.cssVariables).toContain('--a')
+    expect(ds.cssVariables).toContain('--b')
+  })
+
+  it('deduplicates font-family values', () => {
+    const css = 'body { font-family: Arial; } h1 { font-family: Arial; }'
+    const site = makeSite('', css)
+    const ds = extractDesignSystem(site)
+    const arialCount = ds.fontStack.filter(f => f === 'Arial').length
+    expect(arialCount).toBe(1)
+  })
+})
+
+describe('extractPageContent — edge cases', () => {
+  it('handles empty HTML gracefully', () => {
+    const site = makeSite('')
+    const content = extractPageContent(site, makePage())
+    expect(content.headings).toEqual([])
+    expect(content.paragraphs).toEqual([])
+  })
+
+  it('extracts list items', () => {
+    const site = makeSite(`<html><body>
+      <ul>
+        <li>This is a reasonably long list item to test extraction</li>
+        <li>Another item that is long enough to pass the minimum text threshold</li>
+      </ul>
+    </body></html>`)
+    const content = extractPageContent(site, makePage())
+    expect(content.listItems.length).toBe(2)
+  })
+
+  it('extracts CTA button text', () => {
+    const site = makeSite('<html><body><button>Sign Up Now</button></body></html>')
+    const content = extractPageContent(site, makePage())
+    expect(content.ctaTexts).toContain('Sign Up Now')
+  })
+
+  it('filters out very long CTA text (over 100 chars)', () => {
+    const longText = 'x'.repeat(101)
+    const site = makeSite(`<html><body><button>${longText}</button></body></html>`)
+    const content = extractPageContent(site, makePage())
+    expect(content.ctaTexts).not.toContain(longText)
+  })
+
+  it('caps list items at 25', () => {
+    const items = Array.from({ length: 30 }, (_, i) =>
+      `<li>List item number ${i} which is long enough to pass the filter</li>`
+    ).join('')
+    const site = makeSite(`<html><body><ul>${items}</ul></body></html>`)
+    const content = extractPageContent(site, makePage())
+    expect(content.listItems.length).toBeLessThanOrEqual(25)
+  })
+
+  it('caps CTA texts at 8', () => {
+    const buttons = Array.from({ length: 12 }, (_, i) =>
+      `<button>CTA ${i}</button>`
+    ).join('')
+    const site = makeSite(`<html><body>${buttons}</body></html>`)
+    const content = extractPageContent(site, makePage())
+    expect(content.ctaTexts.length).toBeLessThanOrEqual(8)
+  })
+
+  it('caps image alts at 12', () => {
+    const images = Array.from({ length: 15 }, (_, i) =>
+      `<img src="img${i}.png" alt="Image number ${i}" />`
+    ).join('')
+    const site = makeSite(`<html><body>${images}</body></html>`)
+    const content = extractPageContent(site, makePage())
+    expect(content.imageAlts.length).toBeLessThanOrEqual(12)
+  })
+
+  it('ignores images without alt text', () => {
+    const site = makeSite('<html><body><img src="hero.jpg" /></body></html>')
+    const content = extractPageContent(site, makePage())
+    expect(content.imageAlts).toEqual([])
+  })
+
+  it('ignores images with empty alt text', () => {
+    const site = makeSite('<html><body><img src="hero.jpg" alt="" /></body></html>')
+    const content = extractPageContent(site, makePage())
+    expect(content.imageAlts).toEqual([])
+  })
+})

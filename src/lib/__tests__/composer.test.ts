@@ -324,4 +324,71 @@ describe('composePage', () => {
       expect(JSON.parse(msg.content)).toHaveProperty('designSystem')
     })
   })
+
+  describe('CSS condensation', () => {
+    it('deduplicates component CSS rules from rawCss', async () => {
+      mockResponse(validHtml)
+      const design = makeDesign('nav { display: flex; } .hero { padding: 2rem; } body { margin: 0; }')
+      design.componentCss = {
+        nav: 'nav { display: flex; }',
+        hero: '.hero { padding: 2rem; }',
+        footer: '',
+        card: '',
+        button: '',
+      }
+      await composePage(design, makeContent(), makePages(), 'key', 'claude-haiku-4-5-20251001')
+
+      const callArg = mockCreate.mock.calls[0][0]
+      const userContent = JSON.parse(callArg.messages[0].content)
+      // body rule is kept (not in componentCss), nav/hero are deduplicated
+      expect(userContent.designSystem.rawCss).toContain('body')
+    })
+
+    it('prioritizes layout rules (body, html, etc.) in condensed CSS', async () => {
+      mockResponse(validHtml)
+      const layoutRule = 'body { margin: 0; padding: 0; }'
+      const otherRule = '.custom-class { color: red; }'
+      const design = makeDesign(`${layoutRule} ${otherRule}`)
+      await composePage(design, makeContent(), makePages(), 'key', 'claude-haiku-4-5-20251001')
+
+      const callArg = mockCreate.mock.calls[0][0]
+      const userContent = JSON.parse(callArg.messages[0].content)
+      expect(userContent.designSystem.rawCss).toContain('body')
+    })
+  })
+
+  it('defaults max_tokens to 16384 when COMPOSER_MAX_TOKENS is not set', async () => {
+    mockResponse(validHtml)
+    await composePage(makeDesign(), makeContent(), [], 'key', 'claude-haiku-4-5-20251001')
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ max_tokens: 16384 })
+    )
+  })
+
+  it('falls back to 8192 when COMPOSER_MAX_TOKENS is not a number', async () => {
+    vi.stubEnv('COMPOSER_MAX_TOKENS', 'not-a-number')
+    mockResponse(validHtml)
+    await composePage(makeDesign(), makeContent(), [], 'key', 'claude-haiku-4-5-20251001')
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ max_tokens: 8192 })
+    )
+  })
+
+  it('omits optional design fields when they are undefined', async () => {
+    mockResponse(validHtml)
+    const design = makeDesign()
+    // Ensure optional fields are absent
+    delete design.headingFontPairs
+    delete design.backgroundEffects
+    delete design.shadowValues
+    delete design.componentCss
+    await composePage(design, makeContent(), makePages(), 'key', 'claude-haiku-4-5-20251001')
+
+    const callArg = mockCreate.mock.calls[0][0]
+    const userContent = JSON.parse(callArg.messages[0].content)
+    expect(userContent.designSystem.headingFontPairs).toBeUndefined()
+    expect(userContent.designSystem.backgroundEffects).toBeUndefined()
+    expect(userContent.designSystem.shadowValues).toBeUndefined()
+    expect(userContent.designSystem.componentCss).toBeUndefined()
+  })
 })

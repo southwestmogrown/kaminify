@@ -265,4 +265,58 @@ describe('scrapeWithBrowser', () => {
     expect(mockClose).toHaveBeenCalled()
     expect(mockDisconnect).toHaveBeenCalled()
   })
+
+  it('handles screenshot failure gracefully (returns undefined screenshot)', async () => {
+    const html = '<html><head><title>Test</title></head><body><p>Hello</p></body></html>'
+    const connectMock = puppeteer.connect as ReturnType<typeof vi.fn>
+    connectMock.mockResolvedValueOnce({
+      newPage: vi.fn().mockResolvedValue({
+        setUserAgent: vi.fn().mockResolvedValue(undefined),
+        goto: vi.fn().mockResolvedValue(undefined),
+        content: vi.fn().mockResolvedValue(html),
+        close: vi.fn().mockResolvedValue(undefined),
+        setViewport: vi.fn().mockResolvedValue(undefined),
+        screenshot: vi.fn().mockRejectedValue(new Error('Screenshot failed')),
+      }),
+      disconnect: vi.fn().mockResolvedValue(undefined),
+    })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeResponse('')))
+    const result = await scrapeWithBrowser('https://example.com')
+    // screenshot is undefined since it failed — but no error thrown
+    expect(result.screenshot).toBeUndefined()
+    expect(result.title).toBe('Test')
+  })
+
+  it('throws when browser.newPage fails and still disconnects', async () => {
+    const mockDisconnect = vi.fn().mockResolvedValue(undefined)
+    const connectMock = puppeteer.connect as ReturnType<typeof vi.fn>
+    connectMock.mockResolvedValueOnce({
+      newPage: vi.fn().mockRejectedValue(new Error('No pages available')),
+      disconnect: mockDisconnect,
+    })
+    await expect(scrapeWithBrowser('https://example.com')).rejects.toThrow(
+      'Browser: failed to open new page'
+    )
+    expect(mockDisconnect).toHaveBeenCalled()
+  })
+
+  it('handles empty BROWSERLESS_WS_URL pathname correctly', async () => {
+    process.env.BROWSERLESS_WS_URL = 'wss://test.example.com/'
+    const connectMock = puppeteer.connect as ReturnType<typeof vi.fn>
+    connectMock.mockResolvedValueOnce({
+      newPage: vi.fn().mockResolvedValue({
+        setUserAgent: vi.fn().mockResolvedValue(undefined),
+        goto: vi.fn().mockResolvedValue(undefined),
+        content: vi.fn().mockResolvedValue('<html></html>'),
+        close: vi.fn().mockResolvedValue(undefined),
+        setViewport: vi.fn().mockResolvedValue(undefined),
+        screenshot: vi.fn().mockResolvedValue(undefined),
+      }),
+      disconnect: vi.fn().mockResolvedValue(undefined),
+    })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeResponse('')))
+    await scrapeWithBrowser('https://example.com')
+    const calledWith = connectMock.mock.calls[0][0] as { browserWSEndpoint: string }
+    expect(new URL(calledWith.browserWSEndpoint).pathname).toBe('/chromium')
+  })
 })
