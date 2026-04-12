@@ -57,7 +57,14 @@ const mockedAdminClient = vi.mocked(adminClient)
 
 // --- Helpers -----------------------------------------------------------------
 
+/** Returns YYYY-MM-01 for the current UTC month so tests don't drift. */
+function currentMonthStart(): string {
+  const now = new Date()
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`
+}
+
 function makeUser(overrides: Partial<UserRecord> = {}): UserRecord {
+  const monthStart = currentMonthStart()
   return {
     id: 'uuid-1',
     clerk_user_id: 'user_abc',
@@ -65,9 +72,9 @@ function makeUser(overrides: Partial<UserRecord> = {}): UserRecord {
     stripe_subscription_id: null,
     subscription_status: 'free',
     runs_this_month: 0,
-    month_start: '2026-03-01',
-    created_at: '2026-03-01T00:00:00Z',
-    updated_at: '2026-03-01T00:00:00Z',
+    month_start: monthStart,
+    created_at: `${monthStart}T00:00:00Z`,
+    updated_at: `${monthStart}T00:00:00Z`,
     ...overrides,
   }
 }
